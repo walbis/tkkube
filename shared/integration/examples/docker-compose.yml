@@ -1,0 +1,145 @@
+version: '3.8'
+
+services:
+  # MinIO for object storage
+  minio:
+    image: minio/minio:latest
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ACCESS_KEY: demo-access-key
+      MINIO_SECRET_KEY: demo-secret-key
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # Integration Bridge
+  integration-bridge:
+    build:
+      context: ..
+      dockerfile: Dockerfile.bridge
+    ports:
+      - "8080:8080"
+    environment:
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=demo-access-key
+      - MINIO_SECRET_KEY=demo-secret-key
+      - MINIO_BUCKET=k8s-backups
+      - CLUSTER_NAME=demo-cluster
+      - GITOPS_REPO=https://github.com/demo/gitops-repo
+      - GITOPS_BRANCH=main
+      - BACKUP_TOOL_ENDPOINT=http://backup-tool:8080
+      - GITOPS_GENERATOR_ENDPOINT=http://gitops-generator:8081
+      - INTEGRATION_BRIDGE_ENDPOINT=http://integration-bridge:8080
+    volumes:
+      - ./config_integration.yaml:/app/config.yaml:ro
+    depends_on:
+      - minio
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Backup Tool (Go)
+  backup-tool:
+    build:
+      context: ../../backup
+      dockerfile: Dockerfile
+    ports:
+      - "8081:8080"
+    environment:
+      - CLUSTER_NAME=demo-cluster
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=demo-access-key
+      - MINIO_SECRET_KEY=demo-secret-key
+      - MINIO_BUCKET=k8s-backups
+      - INTEGRATION_BRIDGE_ENDPOINT=http://integration-bridge:8080
+      - BACKUP_SCHEDULE=0 */2 * * * # Every 2 hours
+    volumes:
+      - ~/.kube:/root/.kube:ro
+      - ./backup-config.yaml:/app/config.yaml:ro
+    depends_on:
+      - minio
+      - integration-bridge
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+
+  # GitOps Generator (Python)
+  gitops-generator:
+    build:
+      context: ../../kOTN
+      dockerfile: Dockerfile
+    ports:
+      - "8082:8081"
+    environment:
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=demo-access-key
+      - MINIO_SECRET_KEY=demo-secret-key
+      - MINIO_BUCKET=k8s-backups
+      - GITOPS_REPO=https://github.com/demo/gitops-repo
+      - GITOPS_BRANCH=main
+      - INTEGRATION_BRIDGE_ENDPOINT=http://integration-bridge:8080
+      - CLUSTER_NAME=demo-cluster
+    volumes:
+      - ~/.ssh:/root/.ssh:ro
+      - ./gitops-config.yaml:/app/config.yaml:ro
+    depends_on:
+      - minio
+      - integration-bridge
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+
+  # Prometheus for monitoring
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    depends_on:
+      - integration-bridge
+
+  # Grafana for visualization
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+
+volumes:
+  minio_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  default:
+    name: backup-integration
+    driver: bridge

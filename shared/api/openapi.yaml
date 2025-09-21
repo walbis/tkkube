@@ -1,0 +1,2315 @@
+openapi: 3.0.3
+info:
+  title: Kubernetes Backup & Restore API
+  description: |
+    Comprehensive REST API for Kubernetes backup, restore, and disaster recovery operations.
+    
+    This API provides endpoints for:
+    - Backup and restore operations
+    - Disaster recovery scenario management
+    - Cluster and resource validation
+    - Integration bridge monitoring
+    - Webhook management for GitOps workflows
+    
+    ## Authentication
+    All API endpoints require appropriate authentication headers and role-based access control.
+    
+    ## Rate Limiting
+    API endpoints are rate-limited to prevent abuse. Check response headers for current limits.
+    
+    ## Circuit Breaker
+    External service calls are protected by circuit breakers for enhanced resilience.
+  version: "1.0.0"
+  contact:
+    name: API Support
+    email: support@example.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8080
+    description: Development server
+  - url: https://api.backup-system.example.com
+    description: Production server
+
+paths:
+  # Health and Status Endpoints
+  /health:
+    get:
+      summary: Health check
+      description: Returns the health status of the service
+      operationId: getHealth
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: Service is unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /status:
+    get:
+      summary: Get component status
+      description: Returns detailed status information for all system components
+      operationId: getComponentStatus
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Component status retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComponentStatusResponse'
+
+  /metrics:
+    get:
+      summary: Get system metrics
+      description: Returns system performance and operational metrics
+      operationId: getMetrics
+      tags:
+        - Monitoring
+      responses:
+        '200':
+          description: Metrics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetricsResponse'
+
+  # Restore Operation Endpoints
+  /api/v1/restore:
+    post:
+      summary: Start restore operation
+      description: Initiates a new restore operation from a backup
+      operationId: startRestore
+      tags:
+        - Restore
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RestoreRequest'
+      responses:
+        '202':
+          description: Restore operation started successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RestoreOperationResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    
+    get:
+      summary: List active restores
+      description: Returns a list of all currently active restore operations
+      operationId: listActiveRestores
+      tags:
+        - Restore
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum number of results to return
+          schema:
+            type: integer
+            default: 50
+            minimum: 1
+            maximum: 100
+        - name: offset
+          in: query
+          description: Number of results to skip
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+      responses:
+        '200':
+          description: Active restores retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RestoreListResponse'
+
+  /api/v1/restore/{restoreId}:
+    get:
+      summary: Get restore status
+      description: Returns the current status and progress of a specific restore operation
+      operationId: getRestoreStatus
+      tags:
+        - Restore
+      parameters:
+        - name: restoreId
+          in: path
+          required: true
+          description: Unique identifier of the restore operation
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Restore status retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RestoreOperationResponse'
+        '404':
+          description: Restore operation not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    
+    delete:
+      summary: Cancel restore operation
+      description: Cancels an active restore operation
+      operationId: cancelRestore
+      tags:
+        - Restore
+      parameters:
+        - name: restoreId
+          in: path
+          required: true
+          description: Unique identifier of the restore operation
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Restore operation cancelled successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '404':
+          description: Restore operation not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Failed to cancel restore operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/restore/history:
+    get:
+      summary: Get restore history
+      description: Returns historical information about completed restore operations
+      operationId: getRestoreHistory
+      tags:
+        - Restore
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum number of results to return
+          schema:
+            type: integer
+            default: 50
+            minimum: 1
+            maximum: 100
+        - name: offset
+          in: query
+          description: Number of results to skip
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: status
+          in: query
+          description: Filter by restore status
+          schema:
+            $ref: '#/components/schemas/RestoreStatus'
+        - name: cluster_name
+          in: query
+          description: Filter by cluster name
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Restore history retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RestoreHistoryResponse'
+
+  /api/v1/restore/validate:
+    post:
+      summary: Validate restore request
+      description: Validates a restore request without executing it
+      operationId: validateRestore
+      tags:
+        - Restore
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RestoreRequest'
+      responses:
+        '200':
+          description: Validation completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationResponse'
+        '400':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationResponse'
+
+  /api/v1/restore/plan:
+    post:
+      summary: Create restore plan
+      description: Creates a detailed execution plan for a restore operation
+      operationId: createRestorePlan
+      tags:
+        - Restore
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RestoreRequest'
+      responses:
+        '200':
+          description: Restore plan created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RestorePlanResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # Disaster Recovery Endpoints
+  /api/v1/dr/scenarios:
+    get:
+      summary: List DR scenarios
+      description: Returns a list of available disaster recovery scenarios
+      operationId: listDRScenarios
+      tags:
+        - Disaster Recovery
+      responses:
+        '200':
+          description: DR scenarios retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DRScenariosResponse'
+
+  /api/v1/dr/execute:
+    post:
+      summary: Execute DR scenario
+      description: Executes a disaster recovery scenario
+      operationId: executeDRScenario
+      tags:
+        - Disaster Recovery
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DisasterRecoveryRequest'
+      responses:
+        '202':
+          description: DR scenario execution started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DRExecutionResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/dr/scenarios/{scenarioId}:
+    get:
+      summary: Get DR scenario status
+      description: Returns the status of a disaster recovery scenario execution
+      operationId: getDRScenarioStatus
+      tags:
+        - Disaster Recovery
+      parameters:
+        - name: scenarioId
+          in: path
+          required: true
+          description: Unique identifier of the DR scenario
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: DR scenario status retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DRExecutionResponse'
+        '404':
+          description: DR scenario not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # Backup Management Endpoints
+  /api/v1/backups:
+    get:
+      summary: List available backups
+      description: Returns a list of available backups for restore operations
+      operationId: listAvailableBackups
+      tags:
+        - Backups
+      parameters:
+        - name: cluster_name
+          in: query
+          description: Filter by cluster name
+          schema:
+            type: string
+        - name: namespace
+          in: query
+          description: Filter by namespace
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: Maximum number of results to return
+          schema:
+            type: integer
+            default: 50
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: Available backups retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BackupListResponse'
+
+  /api/v1/backups/{backupId}:
+    get:
+      summary: Get backup details
+      description: Returns detailed information about a specific backup
+      operationId: getBackupDetails
+      tags:
+        - Backups
+      parameters:
+        - name: backupId
+          in: path
+          required: true
+          description: Unique identifier of the backup
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Backup details retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BackupDetailsResponse'
+        '404':
+          description: Backup not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/backups/{backupId}/validate:
+    post:
+      summary: Validate backup
+      description: Validates the integrity and completeness of a backup
+      operationId: validateBackup
+      tags:
+        - Backups
+      parameters:
+        - name: backupId
+          in: path
+          required: true
+          description: Unique identifier of the backup
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Backup validation completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationResponse'
+        '404':
+          description: Backup not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # Cluster Management Endpoints
+  /api/v1/clusters:
+    get:
+      summary: List clusters
+      description: Returns a list of available Kubernetes clusters
+      operationId: listClusters
+      tags:
+        - Clusters
+      responses:
+        '200':
+          description: Clusters retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterListResponse'
+
+  /api/v1/clusters/{clusterName}/validate:
+    post:
+      summary: Validate cluster
+      description: Validates cluster configuration and connectivity
+      operationId: validateCluster
+      tags:
+        - Clusters
+      parameters:
+        - name: clusterName
+          in: path
+          required: true
+          description: Name of the cluster to validate
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Cluster validation completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationResponse'
+        '404':
+          description: Cluster not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/clusters/{clusterName}/readiness:
+    get:
+      summary: Check cluster readiness
+      description: Checks if a cluster is ready for backup/restore operations
+      operationId: checkClusterReadiness
+      tags:
+        - Clusters
+      parameters:
+        - name: clusterName
+          in: path
+          required: true
+          description: Name of the cluster to check
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Cluster readiness check completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterReadinessResponse'
+        '404':
+          description: Cluster not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # Integration Endpoints
+  /api/v1/integration/events:
+    post:
+      summary: Publish integration event
+      description: Publishes an event to the integration event bus
+      operationId: publishEvent
+      tags:
+        - Integration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IntegrationEvent'
+      responses:
+        '200':
+          description: Event published successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Invalid event format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/integration/status:
+    get:
+      summary: Get integration status
+      description: Returns the status of integration bridge components
+      operationId: getIntegrationStatus
+      tags:
+        - Integration
+      responses:
+        '200':
+          description: Integration status retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IntegrationStatusResponse'
+
+  # Webhook Endpoints
+  /webhook/backup:
+    post:
+      summary: Backup webhook
+      description: Receives backup completion notifications
+      operationId: handleBackupWebhook
+      tags:
+        - Webhooks
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookRequest'
+      responses:
+        '200':
+          description: Webhook processed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookResponse'
+        '400':
+          description: Invalid webhook payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookResponse'
+
+  /webhook/gitops:
+    post:
+      summary: GitOps webhook
+      description: Receives GitOps operation notifications
+      operationId: handleGitOpsWebhook
+      tags:
+        - Webhooks
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookRequest'
+      responses:
+        '200':
+          description: Webhook processed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookResponse'
+
+  /webhook/restore:
+    post:
+      summary: Restore webhook
+      description: Receives restore operation notifications
+      operationId: handleRestoreWebhook
+      tags:
+        - Webhooks
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookRequest'
+      responses:
+        '200':
+          description: Webhook processed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookResponse'
+
+  # Additional Webhook Registration Endpoints
+  /register/backup:
+    post:
+      summary: Register backup webhook
+      description: Registers a webhook endpoint for backup notifications
+      operationId: registerBackupWebhook
+      tags:
+        - Webhooks
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookRegistration'
+      responses:
+        '200':
+          description: Webhook registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookResponse'
+
+  /register/gitops:
+    post:
+      summary: Register GitOps webhook
+      description: Registers a webhook endpoint for GitOps notifications
+      operationId: registerGitOpsWebhook
+      tags:
+        - Webhooks
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookRegistration'
+      responses:
+        '200':
+          description: Webhook registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookResponse'
+
+components:
+  schemas:
+    # Core Response Types
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Operation completed successfully"
+        timestamp:
+          type: string
+          format: date-time
+        request_id:
+          type: string
+          format: uuid
+      required:
+        - success
+        - timestamp
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+          example: "Operation failed"
+        error:
+          $ref: '#/components/schemas/APIError'
+        timestamp:
+          type: string
+          format: date-time
+        request_id:
+          type: string
+          format: uuid
+      required:
+        - success
+        - timestamp
+
+    APIError:
+      type: object
+      properties:
+        code:
+          type: string
+          example: "validation_error"
+        message:
+          type: string
+          example: "Request validation failed"
+        details:
+          type: object
+          additionalProperties: true
+      required:
+        - code
+        - message
+
+    # Health and Status Types
+    HealthResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+          example: "healthy"
+        timestamp:
+          type: string
+          format: date-time
+        version:
+          type: string
+          example: "1.0.0"
+        uptime:
+          type: string
+          example: "2h15m30s"
+      required:
+        - success
+        - status
+        - timestamp
+
+    ComponentStatusResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            components:
+              type: array
+              items:
+                $ref: '#/components/schemas/ComponentStatus'
+            overall_status:
+              type: string
+              enum: [healthy, degraded, unhealthy]
+        timestamp:
+          type: string
+          format: date-time
+      required:
+        - success
+        - data
+        - timestamp
+
+    ComponentStatus:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "backup-client"
+        status:
+          type: string
+          enum: [running, stopped, error, unknown]
+          example: "running"
+        health:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+          example: "healthy"
+        version:
+          type: string
+          example: "1.0.0"
+        last_check:
+          type: string
+          format: date-time
+        details:
+          type: object
+          additionalProperties: true
+      required:
+        - name
+        - status
+        - health
+
+    MetricsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            system_metrics:
+              $ref: '#/components/schemas/SystemMetrics'
+            component_metrics:
+              type: object
+              additionalProperties:
+                $ref: '#/components/schemas/ComponentMetrics'
+        timestamp:
+          type: string
+          format: date-time
+      required:
+        - success
+        - data
+        - timestamp
+
+    SystemMetrics:
+      type: object
+      properties:
+        cpu_usage:
+          type: number
+          format: float
+          example: 45.2
+        memory_usage:
+          type: number
+          format: float
+          example: 68.7
+        disk_usage:
+          type: number
+          format: float
+          example: 23.1
+        active_connections:
+          type: integer
+          example: 25
+        request_rate:
+          type: number
+          format: float
+          example: 15.3
+
+    ComponentMetrics:
+      type: object
+      properties:
+        request_count:
+          type: integer
+          example: 1523
+        error_count:
+          type: integer
+          example: 3
+        success_count:
+          type: integer
+          example: 1520
+        average_latency:
+          type: string
+          example: "125ms"
+        last_request_time:
+          type: string
+          format: date-time
+
+    # Restore Operation Types
+    RestoreRequest:
+      type: object
+      properties:
+        restore_id:
+          type: string
+          format: uuid
+          description: Unique identifier for the restore operation
+        backup_id:
+          type: string
+          format: uuid
+          description: ID of the backup to restore from
+        cluster_name:
+          type: string
+          description: Target cluster name
+          example: "production-cluster"
+        target_namespaces:
+          type: array
+          items:
+            type: string
+          description: Specific namespaces to restore (optional)
+          example: ["default", "kube-system"]
+        resource_types:
+          type: array
+          items:
+            type: string
+          description: Specific resource types to restore (optional)
+          example: ["deployments", "services", "configmaps"]
+        label_selector:
+          type: string
+          description: Label selector for filtering resources
+          example: "app=web,environment=production"
+        restore_mode:
+          $ref: '#/components/schemas/RestoreMode'
+        validation_mode:
+          $ref: '#/components/schemas/ValidationMode'
+        conflict_strategy:
+          $ref: '#/components/schemas/ConflictStrategy'
+        dry_run:
+          type: boolean
+          description: Whether to perform a dry run
+          default: false
+        configuration:
+          type: object
+          additionalProperties: true
+          description: Additional configuration parameters
+        metadata:
+          type: object
+          additionalProperties: true
+          description: User-defined metadata
+      required:
+        - backup_id
+        - cluster_name
+        - restore_mode
+
+    RestoreMode:
+      type: string
+      enum: [complete, selective, incremental, validation]
+      description: |
+        Restore operation mode:
+        - complete: Restore everything from backup
+        - selective: Restore only specified resources
+        - incremental: Restore only missing resources
+        - validation: Validate without applying
+      example: "complete"
+
+    ValidationMode:
+      type: string
+      enum: [strict, permissive, skip]
+      description: |
+        Validation strictness:
+        - strict: Fail on any validation error
+        - permissive: Warn on validation errors
+        - skip: Skip validation
+      example: "strict"
+
+    ConflictStrategy:
+      type: string
+      enum: [skip, overwrite, merge, fail]
+      description: |
+        How to handle resource conflicts:
+        - skip: Skip conflicting resources
+        - overwrite: Overwrite existing resources
+        - merge: Merge with existing resources
+        - fail: Fail on any conflict
+      example: "merge"
+
+    RestoreStatus:
+      type: string
+      enum: [pending, validating, restoring, completed, failed, cancelled]
+      description: Current status of the restore operation
+      example: "restoring"
+
+    RestoreOperationResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: '#/components/schemas/RestoreOperation'
+        timestamp:
+          type: string
+          format: date-time
+      required:
+        - success
+        - data
+        - timestamp
+
+    RestoreOperation:
+      type: object
+      properties:
+        request:
+          $ref: '#/components/schemas/RestoreRequest'
+        status:
+          $ref: '#/components/schemas/RestoreStatus'
+        start_time:
+          type: string
+          format: date-time
+        end_time:
+          type: string
+          format: date-time
+          nullable: true
+        progress:
+          $ref: '#/components/schemas/RestoreProgress'
+        results:
+          $ref: '#/components/schemas/RestoreResults'
+        validation_report:
+          $ref: '#/components/schemas/ValidationReport'
+          nullable: true
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/RestoreError'
+      required:
+        - request
+        - status
+        - start_time
+        - progress
+
+    RestoreProgress:
+      type: object
+      properties:
+        total_resources:
+          type: integer
+          example: 150
+        processed_resources:
+          type: integer
+          example: 75
+        successful_resources:
+          type: integer
+          example: 70
+        failed_resources:
+          type: integer
+          example: 2
+        skipped_resources:
+          type: integer
+          example: 3
+        percent_complete:
+          type: number
+          format: float
+          example: 50.0
+        current_namespace:
+          type: string
+          example: "default"
+        current_resource:
+          type: string
+          example: "deployment/web-app"
+        estimated_time_left:
+          type: string
+          example: "5m30s"
+          nullable: true
+        resource_breakdown:
+          type: object
+          additionalProperties:
+            type: integer
+          example:
+            deployments: 10
+            services: 15
+            configmaps: 25
+      required:
+        - total_resources
+        - processed_resources
+        - percent_complete
+
+    RestoreResults:
+      type: object
+      properties:
+        restored_resources:
+          type: array
+          items:
+            $ref: '#/components/schemas/RestoredResource'
+        skipped_resources:
+          type: array
+          items:
+            $ref: '#/components/schemas/SkippedResource'
+        failed_resources:
+          type: array
+          items:
+            $ref: '#/components/schemas/FailedResource'
+        summary:
+          $ref: '#/components/schemas/RestoreSummary'
+        validation_summary:
+          $ref: '#/components/schemas/ValidationSummary'
+          nullable: true
+        performance_metrics:
+          $ref: '#/components/schemas/PerformanceMetrics'
+      required:
+        - restored_resources
+        - skipped_resources
+        - failed_resources
+        - summary
+
+    RestoredResource:
+      type: object
+      properties:
+        api_version:
+          type: string
+          example: "apps/v1"
+        kind:
+          type: string
+          example: "Deployment"
+        namespace:
+          type: string
+          example: "default"
+        name:
+          type: string
+          example: "web-app"
+        restore_time:
+          type: string
+          format: date-time
+        action_taken:
+          type: string
+          enum: [created, updated, merged]
+          example: "created"
+      required:
+        - api_version
+        - kind
+        - name
+        - restore_time
+        - action_taken
+
+    SkippedResource:
+      type: object
+      properties:
+        api_version:
+          type: string
+          example: "v1"
+        kind:
+          type: string
+          example: "Secret"
+        namespace:
+          type: string
+          example: "kube-system"
+        name:
+          type: string
+          example: "admin-token"
+        reason:
+          type: string
+          example: "Resource already exists with skip conflict strategy"
+      required:
+        - api_version
+        - kind
+        - name
+        - reason
+
+    FailedResource:
+      type: object
+      properties:
+        api_version:
+          type: string
+          example: "v1"
+        kind:
+          type: string
+          example: "PersistentVolume"
+        namespace:
+          type: string
+          example: "storage"
+        name:
+          type: string
+          example: "data-volume"
+        error:
+          type: string
+          example: "Failed to create resource: insufficient permissions"
+        retry_count:
+          type: integer
+          example: 3
+      required:
+        - api_version
+        - kind
+        - name
+        - error
+
+    RestoreSummary:
+      type: object
+      properties:
+        total_resources:
+          type: integer
+          example: 150
+        successful_resources:
+          type: integer
+          example: 145
+        failed_resources:
+          type: integer
+          example: 3
+        skipped_resources:
+          type: integer
+          example: 2
+        duration:
+          type: string
+          example: "8m45s"
+        success_rate:
+          type: number
+          format: float
+          example: 96.7
+      required:
+        - total_resources
+        - successful_resources
+        - failed_resources
+        - skipped_resources
+        - duration
+
+    RestoreError:
+      type: object
+      properties:
+        error_type:
+          type: string
+          example: "validation_error"
+        message:
+          type: string
+          example: "Resource validation failed"
+        timestamp:
+          type: string
+          format: date-time
+        details:
+          type: object
+          additionalProperties: true
+      required:
+        - error_type
+        - message
+        - timestamp
+
+    ValidationReport:
+      type: object
+      properties:
+        validation_status:
+          type: string
+          enum: [passed, failed, warning]
+          example: "passed"
+        total_checks:
+          type: integer
+          example: 25
+        passed_checks:
+          type: integer
+          example: 23
+        failed_checks:
+          type: integer
+          example: 1
+        warning_checks:
+          type: integer
+          example: 1
+        checks:
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidationCheck'
+        summary:
+          type: string
+          example: "Validation completed with 1 warning"
+      required:
+        - validation_status
+        - total_checks
+        - passed_checks
+        - failed_checks
+
+    ValidationCheck:
+      type: object
+      properties:
+        check_name:
+          type: string
+          example: "cluster_connectivity"
+        status:
+          type: string
+          enum: [passed, failed, warning]
+          example: "passed"
+        message:
+          type: string
+          example: "Cluster is reachable and responsive"
+        details:
+          type: object
+          additionalProperties: true
+      required:
+        - check_name
+        - status
+        - message
+
+    ValidationSummary:
+      type: object
+      properties:
+        pre_validation:
+          $ref: '#/components/schemas/ValidationReport'
+        post_validation:
+          $ref: '#/components/schemas/ValidationReport'
+          nullable: true
+
+    PerformanceMetrics:
+      type: object
+      properties:
+        total_duration:
+          type: string
+          example: "8m45s"
+        validation_duration:
+          type: string
+          example: "1m15s"
+        restore_duration:
+          type: string
+          example: "7m30s"
+        average_resource_time:
+          type: string
+          example: "3.2s"
+        throughput:
+          type: number
+          format: float
+          description: Resources per second
+          example: 2.86
+        peak_memory_usage:
+          type: string
+          example: "256MB"
+        network_transfer:
+          type: string
+          example: "1.2GB"
+
+    RestoreListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            restores:
+              type: array
+              items:
+                $ref: '#/components/schemas/RestoreOperation'
+            total_count:
+              type: integer
+              example: 25
+            has_more:
+              type: boolean
+              example: false
+        timestamp:
+          type: string
+          format: date-time
+      required:
+        - success
+        - data
+        - timestamp
+
+    RestoreHistoryResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            history:
+              type: array
+              items:
+                $ref: '#/components/schemas/RestoreRecord'
+            total_count:
+              type: integer
+              example: 150
+            has_more:
+              type: boolean
+              example: true
+        timestamp:
+          type: string
+          format: date-time
+      required:
+        - success
+        - data
+        - timestamp
+
+    RestoreRecord:
+      type: object
+      properties:
+        restore_id:
+          type: string
+          format: uuid
+        backup_id:
+          type: string
+          format: uuid
+        cluster_name:
+          type: string
+          example: "production-cluster"
+        status:
+          $ref: '#/components/schemas/RestoreStatus'
+        start_time:
+          type: string
+          format: date-time
+        end_time:
+          type: string
+          format: date-time
+          nullable: true
+        duration:
+          type: string
+          example: "8m45s"
+          nullable: true
+        summary:
+          $ref: '#/components/schemas/RestoreSummary'
+        initiated_by:
+          type: string
+          example: "admin@example.com"
+      required:
+        - restore_id
+        - backup_id
+        - cluster_name
+        - status
+        - start_time
+
+    ValidationResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: '#/components/schemas/ValidationReport'
+        timestamp:
+          type: string
+          format: date-time
+      required:
+        - success
+        - data
+        - timestamp
+
+    RestorePlanResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: '#/components/schemas/RestorePlan'
+        timestamp:
+          type: string
+          format: date-time
+      required:
+        - success
+        - data
+        - timestamp
+
+    RestorePlan:
+      type: object
+      properties:
+        plan_id:
+          type: string
+          format: uuid
+        restore_request:
+          $ref: '#/components/schemas/RestoreRequest'
+        execution_steps:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExecutionStep'
+        estimated_duration:
+          type: string
+          example: "12m30s"
+        resource_summary:
+          type: object
+          additionalProperties:
+            type: integer
+        dependencies:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResourceDependency'
+        risks:
+          type: array
+          items:
+            $ref: '#/components/schemas/RestoreRisk'
+        recommendations:
+          type: array
+          items:
+            type: string
+      required:
+        - plan_id
+        - restore_request
+        - execution_steps
+        - estimated_duration
+
+    ExecutionStep:
+      type: object
+      properties:
+        step_number:
+          type: integer
+          example: 1
+        description:
+          type: string
+          example: "Validate cluster connectivity"
+        estimated_duration:
+          type: string
+          example: "30s"
+        dependencies:
+          type: array
+          items:
+            type: integer
+        resources_affected:
+          type: array
+          items:
+            type: string
+      required:
+        - step_number
+        - description
+        - estimated_duration
+
+    ResourceDependency:
+      type: object
+      properties:
+        resource:
+          type: string
+          example: "deployment/web-app"
+        depends_on:
+          type: array
+          items:
+            type: string
+          example: ["configmap/app-config", "secret/app-secrets"]
+        dependency_type:
+          type: string
+          enum: [hard, soft]
+          example: "hard"
+      required:
+        - resource
+        - depends_on
+        - dependency_type
+
+    RestoreRisk:
+      type: object
+      properties:
+        risk_type:
+          type: string
+          example: "data_loss"
+        severity:
+          type: string
+          enum: [low, medium, high, critical]
+          example: "medium"
+        description:
+          type: string
+          example: "Existing data may be overwritten"
+        mitigation:
+          type: string
+          example: "Create backup before restore"
+      required:
+        - risk_type
+        - severity
+        - description
+
+    # Disaster Recovery Types
+    DisasterRecoveryRequest:
+      type: object
+      properties:
+        scenario_id:
+          type: string
+          format: uuid
+          description: Unique identifier for the DR scenario
+        source_cluster:
+          type: string
+          description: Source cluster name
+          example: "primary-cluster"
+        target_cluster:
+          type: string
+          description: Target cluster name
+          example: "dr-cluster"
+        backup_id:
+          type: string
+          format: uuid
+          description: Backup to use for recovery (optional)
+        scenario_type:
+          type: string
+          enum: [cluster_rebuild, namespace_recovery, data_corruption, configuration_rollback]
+          description: Type of disaster recovery scenario
+          example: "cluster_rebuild"
+        automation_level:
+          type: string
+          enum: [manual, assisted, automated]
+          description: Level of automation for the recovery
+          example: "assisted"
+        validation_level:
+          type: string
+          enum: [strict, permissive, skip]
+          description: Validation strictness
+          example: "strict"
+        configuration:
+          type: object
+          additionalProperties: true
+          description: Additional configuration parameters
+        metadata:
+          type: object
+          additionalProperties: true
+          description: User-defined metadata
+      required:
+        - source_cluster
+        - target_cluster
+        - scenario_type
+
+    DRScenariosResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            scenarios:
+              type: array
+              items:
+                $ref: '#/components/schemas/DRScenario'
+        timestamp:
+          type: string
+          format: date-time
+      required:
+        - success
+        - data
+        - timestamp
+
+    DRScenario:
+      type: object
+      properties:
+        scenario_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: "Complete Cluster Rebuild"
+        description:
+          type: string
+          example: "Full cluster recovery from catastrophic failure"
+        scenario_type:
+          type: string
+          example: "cluster_rebuild"
+        supported_clusters:
+          type: array
+          items:
+            type: string
+        estimated_duration:
+          type: string
+          example: "45m"
+        automation_support:
+          type: array
+          items:
+            type: string
+            enum: [manual, assisted, automated]
+        prerequisites:
+          type: array
+          items:
+            type: string
+      required:
+        - scenario_id
+        - name
+        - scenario_type
+
+    DRExecutionResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: '#/components/schemas/DRExecution'
+        timestamp:
+          type: string
+          format: date-time
+      required:
+        - success
+        - data
+        - timestamp
+
+    DRExecution:
+      type: object
+      properties:
+        execution_id:
+          type: string
+          format: uuid
+        scenario_request:
+          $ref: '#/components/schemas/DisasterRecoveryRequest'
+        status:
+          type: string
+          enum: [planning, validating, executing, completed, failed, cancelled]
+          example: "executing"
+        start_time:
+          type: string
+          format: date-time
+        end_time:
+          type: string
+          format: date-time
+          nullable: true
+        progress:
+          $ref: '#/components/schemas/DRProgress'
+        phases:
+          type: array
+          items:
+            $ref: '#/components/schemas/DRPhase'
+        results:
+          $ref: '#/components/schemas/DRResults'
+          nullable: true
+      required:
+        - execution_id
+        - scenario_request
+        - status
+        - start_time
+        - progress
+
+    DRProgress:
+      type: object
+      properties:
+        current_phase:
+          type: string
+          example: "gitops_sync"
+        total_phases:
+          type: integer
+          example: 6
+        completed_phases:
+          type: integer
+          example: 3
+        percent_complete:
+          type: number
+          format: float
+          example: 50.0
+        estimated_time_left:
+          type: string
+          example: "15m30s"
+          nullable: true
+      required:
+        - current_phase
+        - total_phases
+        - completed_phases
+        - percent_complete
+
+    DRPhase:
+      type: object
+      properties:
+        phase_name:
+          type: string
+          example: "planning"
+        status:
+          type: string
+          enum: [pending, running, completed, failed, skipped]
+          example: "completed"
+        start_time:
+          type: string
+          format: date-time
+          nullable: true
+        end_time:
+          type: string
+          format: date-time
+          nullable: true
+        duration:
+          type: string
+          example: "2m15s"
+          nullable: true
+        description:
+          type: string
+          example: "Analyzing recovery requirements and creating execution plan"
+        results:
+          type: object
+          additionalProperties: true
+      required:
+        - phase_name
+        - status
+
+    DRResults:
+      type: object
+      properties:
+        overall_status:
+          type: string
+          enum: [success, partial_success, failure]
+          example: "success"
+        duration:
+          type: string
+          example: "42m18s"
+        recovered_components:
+          type: array
+          items:
+            type: string
+        failed_components:
+          type: array
+          items:
+            type: string
+        performance_metrics:
+          $ref: '#/components/schemas/PerformanceMetrics'
+        recommendations:
+          type: array
+          items:
+            type: string
+
+    # Backup Management Types
+    BackupListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            backups:
+              type: array
+              items:
+                $ref: '#/components/schemas/BackupSummary'
+            total_count:
+              type: integer
+              example: 75
+            has_more:
+              type: boolean
+              example: true
+        timestamp:
+          type: string
+          format: date-time
+      required:
+        - success
+        - data
+        - timestamp
+
+    BackupSummary:
+      type: object
+      properties:
+        backup_id:
+          type: string
+          format: uuid
+        cluster_name:
+          type: string
+          example: "production-cluster"
+        creation_time:
+          type: string
+          format: date-time
+        backup_type:
+          type: string
+          enum: [full, incremental, differential]
+          example: "full"
+        size:
+          type: string
+          example: "2.5GB"
+        status:
+          type: string
+          enum: [completed, failed, in_progress]
+          example: "completed"
+        resource_count:
+          type: integer
+          example: 150
+        namespaces:
+          type: array
+          items:
+            type: string
+        retention_until:
+          type: string
+          format: date-time
+      required:
+        - backup_id
+        - cluster_name
+        - creation_time
+        - backup_type
+        - status
+
+    BackupDetailsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: '#/components/schemas/BackupDetails'
+        timestamp:
+          type: string
+          format: date-time
+      required:
+        - success
+        - data
+        - timestamp
+
+    BackupDetails:
+      type: object
+      properties:
+        backup_id:
+          type: string
+          format: uuid
+        cluster_name:
+          type: string
+          example: "production-cluster"
+        creation_time:
+          type: string
+          format: date-time
+        completion_time:
+          type: string
+          format: date-time
+        backup_type:
+          type: string
+          enum: [full, incremental, differential]
+          example: "full"
+        size:
+          type: string
+          example: "2.5GB"
+        compressed_size:
+          type: string
+          example: "1.8GB"
+        status:
+          type: string
+          enum: [completed, failed, in_progress]
+          example: "completed"
+        resource_breakdown:
+          type: object
+          additionalProperties:
+            type: integer
+          example:
+            deployments: 25
+            services: 30
+            configmaps: 45
+        namespaces:
+          type: array
+          items:
+            type: string
+        storage_location:
+          type: string
+          example: "s3://backup-bucket/cluster-backups/"
+        encryption_enabled:
+          type: boolean
+          example: true
+        backup_policy:
+          type: string
+          example: "daily-retention-30d"
+        metadata:
+          type: object
+          additionalProperties: true
+        checksum:
+          type: string
+          example: "sha256:abc123..."
+        retention_until:
+          type: string
+          format: date-time
+      required:
+        - backup_id
+        - cluster_name
+        - creation_time
+        - backup_type
+        - status
+
+    # Cluster Management Types
+    ClusterListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            clusters:
+              type: array
+              items:
+                $ref: '#/components/schemas/ClusterInfo'
+        timestamp:
+          type: string
+          format: date-time
+      required:
+        - success
+        - data
+        - timestamp
+
+    ClusterInfo:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "production-cluster"
+        status:
+          type: string
+          enum: [active, inactive, maintenance, error]
+          example: "active"
+        version:
+          type: string
+          example: "v1.28.0"
+        node_count:
+          type: integer
+          example: 5
+        endpoint:
+          type: string
+          example: "https://api.cluster.example.com"
+        region:
+          type: string
+          example: "us-west-2"
+        provider:
+          type: string
+          example: "aws"
+        last_backup:
+          type: string
+          format: date-time
+          nullable: true
+        backup_enabled:
+          type: boolean
+          example: true
+      required:
+        - name
+        - status
+        - version
+
+    ClusterReadinessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: '#/components/schemas/ClusterReadiness'
+        timestamp:
+          type: string
+          format: date-time
+      required:
+        - success
+        - data
+        - timestamp
+
+    ClusterReadiness:
+      type: object
+      properties:
+        cluster_name:
+          type: string
+          example: "production-cluster"
+        ready:
+          type: boolean
+          example: true
+        readiness_checks:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReadinessCheck'
+        overall_score:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 100
+          example: 95.5
+        recommendations:
+          type: array
+          items:
+            type: string
+      required:
+        - cluster_name
+        - ready
+        - readiness_checks
+        - overall_score
+
+    ReadinessCheck:
+      type: object
+      properties:
+        check_name:
+          type: string
+          example: "api_server_connectivity"
+        status:
+          type: string
+          enum: [passed, failed, warning]
+          example: "passed"
+        message:
+          type: string
+          example: "API server is responsive"
+        score:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 100
+          example: 100.0
+        details:
+          type: object
+          additionalProperties: true
+      required:
+        - check_name
+        - status
+        - message
+        - score
+
+    # Integration and Event Types
+    IntegrationEvent:
+      type: object
+      properties:
+        event_id:
+          type: string
+          format: uuid
+        event_type:
+          type: string
+          example: "backup_completed"
+        source:
+          type: string
+          example: "backup-service"
+        target:
+          type: string
+          example: "gitops-service"
+        timestamp:
+          type: string
+          format: date-time
+        data:
+          type: object
+          additionalProperties: true
+        metadata:
+          type: object
+          additionalProperties: true
+        priority:
+          type: string
+          enum: [low, normal, high, critical]
+          example: "normal"
+        dependencies:
+          type: array
+          items:
+            type: string
+      required:
+        - event_type
+        - source
+        - timestamp
+        - data
+
+    IntegrationStatusResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: '#/components/schemas/IntegrationStatus'
+        timestamp:
+          type: string
+          format: date-time
+      required:
+        - success
+        - data
+        - timestamp
+
+    IntegrationStatus:
+      type: object
+      properties:
+        bridge_status:
+          type: string
+          enum: [running, stopped, error]
+          example: "running"
+        component_count:
+          type: integer
+          example: 6
+        active_connections:
+          type: integer
+          example: 3
+        event_queue_size:
+          type: integer
+          example: 15
+        last_health_check:
+          type: string
+          format: date-time
+        components:
+          type: array
+          items:
+            $ref: '#/components/schemas/ComponentStatus'
+        performance_metrics:
+          $ref: '#/components/schemas/PerformanceMetrics'
+      required:
+        - bridge_status
+        - component_count
+        - last_health_check
+
+    # Webhook Types
+    WebhookRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          example: "backup_completed"
+        source:
+          type: string
+          example: "backup-service"
+        timestamp:
+          type: string
+          format: date-time
+        data:
+          type: object
+          additionalProperties: true
+        signature:
+          type: string
+          description: HMAC signature for webhook verification
+          example: "sha256=abc123..."
+      required:
+        - id
+        - type
+        - source
+        - timestamp
+        - data
+
+    WebhookResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Webhook processed successfully"
+        request_id:
+          type: string
+          format: uuid
+        timestamp:
+          type: string
+          format: date-time
+        data:
+          type: object
+          additionalProperties: true
+      required:
+        - success
+        - message
+        - timestamp
+
+    WebhookRegistration:
+      type: object
+      properties:
+        endpoint_url:
+          type: string
+          format: uri
+          example: "https://api.example.com/webhooks/backup"
+        event_types:
+          type: array
+          items:
+            type: string
+          example: ["backup_completed", "backup_failed"]
+        secret:
+          type: string
+          description: Secret for HMAC signature verification
+        active:
+          type: boolean
+          default: true
+        retry_policy:
+          $ref: '#/components/schemas/RetryPolicy'
+        headers:
+          type: object
+          additionalProperties:
+            type: string
+          description: Additional headers to include in webhook requests
+      required:
+        - endpoint_url
+        - event_types
+
+    RetryPolicy:
+      type: object
+      properties:
+        max_attempts:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 3
+        initial_delay:
+          type: string
+          example: "1s"
+        max_delay:
+          type: string
+          example: "5m"
+        multiplier:
+          type: number
+          format: float
+          minimum: 1.0
+          default: 2.0
+      required:
+        - max_attempts
+
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API key for authentication
+    
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token authentication
+    
+    BasicAuth:
+      type: http
+      scheme: basic
+      description: Basic HTTP authentication
+
+security:
+  - ApiKeyAuth: []
+  - BearerAuth: []
+  - BasicAuth: []
+
+tags:
+  - name: Health
+    description: Health check and status endpoints
+  - name: Monitoring
+    description: System monitoring and metrics endpoints
+  - name: Restore
+    description: Backup restore operations
+  - name: Disaster Recovery
+    description: Disaster recovery scenario management
+  - name: Backups
+    description: Backup management and information
+  - name: Clusters
+    description: Kubernetes cluster management
+  - name: Integration
+    description: Integration bridge and event management
+  - name: Webhooks
+    description: Webhook management and processing
+
+externalDocs:
+  description: Find more information about the Kubernetes Backup & Restore System
+  url: https://docs.example.com/backup-restore-api

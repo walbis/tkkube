@@ -1,0 +1,237 @@
+# Coverage Analysis Configuration
+# Configuration file for coverage thresholds, quality gates, and reporting
+
+coverage:
+  # Global coverage threshold (applies to entire codebase)
+  global_threshold: 80
+  
+  # Critical path threshold (higher bar for mission-critical code)
+  critical_path_threshold: 90
+  
+  # Quality gate enforcement
+  quality_gates:
+    # Whether to enforce global threshold
+    enforce_global: true
+    
+    # Whether to enforce critical path thresholds
+    enforce_critical: true
+    
+    # Whether to block builds on threshold violations
+    block_on_violation: true
+    
+    # Whether to block only on critical violations (allow warnings)
+    block_only_critical: false
+
+# Module-specific thresholds
+modules:
+  # Backup core functionality (critical path)
+  "internal/backup":
+    threshold: 85
+    is_critical: true
+    description: "Core backup functionality - mission critical"
+  
+  # Resilience and error handling (critical path)
+  "internal/resilience":
+    threshold: 85
+    is_critical: true
+    description: "Circuit breakers and retry logic - critical for reliability"
+  
+  # Orchestration logic (critical path)
+  "internal/orchestrator":
+    threshold: 85
+    is_critical: true
+    description: "Backup orchestration - critical workflow coordination"
+  
+  # Configuration management
+  "internal/config":
+    threshold: 75
+    is_critical: false
+    description: "Configuration parsing and validation"
+  
+  # Logging infrastructure
+  "internal/logging":
+    threshold: 70
+    is_critical: false
+    description: "Logging utilities and formatters"
+  
+  # Metrics and monitoring
+  "internal/metrics":
+    threshold: 75
+    is_critical: false
+    description: "Prometheus metrics collection"
+  
+  # Cleanup operations
+  "internal/cleanup":
+    threshold: 80
+    is_critical: false
+    description: "Resource cleanup and garbage collection"
+  
+  # Priority management
+  "internal/priority":
+    threshold: 75
+    is_critical: false
+    description: "Backup priority and scheduling"
+  
+  # Cluster detection
+  "internal/cluster":
+    threshold: 75
+    is_critical: false
+    description: "Kubernetes cluster detection and validation"
+  
+  # Server components
+  "internal/server":
+    threshold: 75
+    is_critical: false
+    description: "HTTP server and API endpoints"
+
+# Reporting configuration
+reporting:
+  # Output formats to generate
+  formats:
+    - html
+    - json
+    - markdown
+    - csv
+  
+  # Report file naming
+  file_naming:
+    timestamp_format: "%Y%m%d_%H%M%S"
+    include_commit_hash: true
+    
+  # HTML report customization
+  html:
+    title: "Coverage Report - Kubernetes Backup System"
+    include_charts: true
+    include_trends: true
+    chart_days: 30
+    
+  # JSON report structure
+  json:
+    include_functions: true
+    include_metadata: true
+    compact: false
+
+# Trend analysis
+trends:
+  # Number of historical data points to maintain
+  history_limit: 100
+  
+  # Trend analysis window (days)
+  analysis_window: 30
+  
+  # Trend alerting thresholds
+  alerts:
+    # Alert if coverage drops by this percentage
+    decline_threshold: -2.0
+    
+    # Alert if coverage hasn't improved in this many days
+    stagnation_days: 14
+    
+    # Alert if module falls below threshold for this many consecutive runs
+    consecutive_failures: 3
+
+# Coverage exclusions
+exclusions:
+  # Files to exclude from coverage analysis
+  files:
+    - "**/*_mock.go"
+    - "**/mock_*.go"
+    - "**/*.pb.go"
+    - "**/testdata/**"
+    - "**/vendor/**"
+  
+  # Functions to exclude (by name pattern)
+  functions:
+    - "init"
+    - "main"
+    - "Test*"
+    - "Benchmark*"
+    - "Example*"
+  
+  # Lines to exclude (by comment)
+  line_comments:
+    - "// NOCOV"
+    - "// coverage:ignore"
+    - "// skipcov"
+
+# Integration settings
+integration:
+  # CI/CD platform configurations
+  github_actions:
+    # Whether to comment on PRs
+    comment_on_pr: true
+    
+    # Whether to set commit status
+    set_commit_status: true
+    
+    # Artifact retention days
+    artifact_retention: 30
+    
+    # Whether to upload coverage to external services
+    upload_to_codecov: false
+    upload_to_coveralls: false
+  
+  # Slack notifications (if webhook provided)
+  slack:
+    enabled: false
+    webhook_url: ""
+    channel: "#quality"
+    notify_on:
+      - critical_violations
+      - trend_decline
+      - milestone_achievements
+  
+  # Email notifications
+  email:
+    enabled: false
+    smtp_server: ""
+    recipients: []
+    notify_on:
+      - critical_violations
+      - daily_summary
+
+# Advanced settings
+advanced:
+  # Coverage measurement mode
+  coverage_mode: "atomic"  # atomic, set, count
+  
+  # Race detection during coverage
+  enable_race_detection: true
+  
+  # Timeout for coverage runs (minutes)
+  timeout: 10
+  
+  # Parallel test execution
+  parallel: true
+  
+  # CPU count for parallel execution
+  cpu_count: 0  # 0 = auto-detect
+  
+  # Memory limit for coverage runs (MB)
+  memory_limit: 1024
+  
+  # Verbose output during analysis
+  verbose: false
+  
+  # Debug mode (extra logging)
+  debug: false
+
+# Quality recommendations
+recommendations:
+  # Automatically suggest areas for improvement
+  auto_suggest: true
+  
+  # Prioritize suggestions by impact
+  prioritize_critical: true
+  
+  # Include code examples in suggestions
+  include_examples: true
+  
+  # Types of recommendations to provide
+  types:
+    - edge_cases
+    - error_paths
+    - integration_scenarios
+    - performance_tests
+    - boundary_conditions
+    - negative_testing

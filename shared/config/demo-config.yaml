@@ -1,0 +1,126 @@
+schema_version: "1.0.0"
+description: "Demo configuration for testing shared configuration system"
+
+# MinIO/S3 Configuration
+storage:
+  type: minio
+  endpoint: localhost:9000
+  access_key: minioadmin
+  secret_key: minioadmin123
+  bucket: cluster-backups
+  use_ssl: false
+  region: us-east-1
+  auto_create_bucket: true
+  
+  connection:
+    timeout: 30
+    max_retries: 3
+    retry_delay: 5s
+
+# Cluster Configuration
+cluster:
+  name: demo-cluster
+  domain: cluster.local
+  type: kubernetes
+
+# Backup Configuration
+backup:
+  filtering:
+    mode: "whitelist"
+    resources:
+      include:
+        - deployments
+        - services
+        - configmaps
+        - persistentvolumeclaims
+      exclude:
+        - events
+        - pods
+    namespaces:
+      exclude:
+        - kube-system
+        - kube-public
+        - default
+  
+  behavior:
+    batch_size: 25
+    validate_yaml: true
+    skip_invalid_resources: true
+    include_managed_fields: false
+    include_status: false
+    max_resource_size: "10Mi"
+  
+  cleanup:
+    enabled: true
+    retention_days: 14
+    cleanup_on_startup: false
+
+# GitOps Configuration
+gitops:
+  repository:
+    url: https://github.com/demo/gitops-repo.git
+    branch: main
+    auth:
+      method: "ssh"
+      ssh:
+        private_key_path: "~/.ssh/id_rsa"
+  
+  structure:
+    base_dir: "namespaces"
+    environments:
+      - name: dev
+        cluster_url: "https://dev-cluster.example.com"
+        auto_sync: true
+        replicas: 1
+      - name: prod
+        cluster_url: "https://prod-cluster.example.com"
+        auto_sync: false
+        replicas: 3
+    
+    argocd:
+      enabled: true
+      namespace: "argocd"
+      project: "default"
+      sync_policy:
+        automated: false
+        prune: false
+        self_heal: false
+
+# Pipeline Integration
+pipeline:
+  mode: "sequential"
+  automation:
+    enabled: true
+    trigger_on_backup_complete: true
+    wait_for_backup: true
+    max_wait_time: 300
+  
+  notifications:
+    enabled: false
+    webhook:
+      url: ""
+    slack:
+      webhook_url: ""
+      channel: "#backup-notifications"
+  
+  error_handling:
+    continue_on_error: false
+    max_retries: 3
+    retry_delay: 30s
+
+# Observability
+observability:
+  metrics:
+    enabled: true
+    port: 8080
+    path: "/metrics"
+  
+  logging:
+    level: "info"
+    format: "json"
+    file: ""
+  
+  tracing:
+    enabled: false
+    endpoint: ""
+    sample_rate: 0.1

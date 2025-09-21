@@ -1,0 +1,532 @@
+# Complex multi-tier application for comprehensive testing
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ecommerce-prod
+  labels:
+    environment: production
+    tier: application
+    backup: enabled
+  annotations:
+    backup.kubernetes.io/schedule: "0 2 * * *"
+    monitoring.kubernetes.io/enabled: "true"
+---
+# Database ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: database-config
+  namespace: ecommerce-prod
+  labels:
+    app: ecommerce
+    component: database
+data:
+  postgresql.conf: |
+    max_connections = 100
+    shared_buffers = 128MB
+    effective_cache_size = 1GB
+    maintenance_work_mem = 64MB
+    checkpoint_completion_target = 0.9
+    wal_buffers = 16MB
+    default_statistics_target = 100
+    random_page_cost = 1.1
+    effective_io_concurrency = 200
+  init.sql: |
+    CREATE DATABASE ecommerce;
+    CREATE USER app_user WITH PASSWORD 'secure_password';
+    GRANT ALL PRIVILEGES ON DATABASE ecommerce TO app_user;
+---
+# Application ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: ecommerce-prod
+  labels:
+    app: ecommerce
+    component: backend
+data:
+  application.properties: |
+    server.port=8080
+    spring.datasource.url=jdbc:postgresql://database:5432/ecommerce
+    spring.jpa.hibernate.ddl-auto=validate
+    spring.jpa.show-sql=false
+    spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
+    logging.level.org.springframework.web=INFO
+    logging.level.org.hibernate=WARN
+    management.endpoints.web.exposure.include=health,info,metrics,prometheus
+    management.endpoint.health.show-details=always
+  cache-config.yaml: |
+    redis:
+      host: redis
+      port: 6379
+      timeout: 2000
+      pool:
+        max-active: 20
+        max-idle: 10
+        min-idle: 5
+---
+# Application Secrets
+apiVersion: v1
+kind: Secret
+metadata:
+  name: app-secrets
+  namespace: ecommerce-prod
+  labels:
+    app: ecommerce
+    component: secrets
+type: Opaque
+data:
+  database-password: c2VjdXJlX3Bhc3N3b3Jk  # secure_password
+  jwt-secret: am9obi5kb2VAZXhhbXBsZS5jb20=  # john.doe@example.com
+  stripe-api-key: c2tfbGl2ZV8xMjM0NTY3ODkw  # sk_live_1234567890
+  sendgrid-api-key: U0cuMTIzNDU2Nzg5MGFiY2RlZg==  # SG.1234567890abcdef
+---
+# Database Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: database
+  namespace: ecommerce-prod
+  labels:
+    app: ecommerce
+    component: database
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: ecommerce
+      component: database
+  template:
+    metadata:
+      labels:
+        app: ecommerce
+        component: database
+    spec:
+      containers:
+      - name: postgresql
+        image: postgres:14
+        ports:
+        - containerPort: 5432
+          name: postgres
+        env:
+        - name: POSTGRES_DB
+          value: ecommerce
+        - name: POSTGRES_USER
+          value: app_user
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: database-password
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        volumeMounts:
+        - name: postgres-storage
+          mountPath: /var/lib/postgresql/data
+        - name: postgres-config
+          mountPath: /etc/postgresql/postgresql.conf
+          subPath: postgresql.conf
+        - name: postgres-init
+          mountPath: /docker-entrypoint-initdb.d/init.sql
+          subPath: init.sql
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - exec pg_isready -U "app_user" -d "ecommerce" -h 127.0.0.1 -p 5432
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - exec pg_isready -U "app_user" -d "ecommerce" -h 127.0.0.1 -p 5432
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 1
+      volumes:
+      - name: postgres-storage
+        persistentVolumeClaim:
+          claimName: postgres-pvc
+      - name: postgres-config
+        configMap:
+          name: database-config
+      - name: postgres-init
+        configMap:
+          name: database-config
+---
+# Redis Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: ecommerce-prod
+  labels:
+    app: ecommerce
+    component: cache
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ecommerce
+      component: cache
+  template:
+    metadata:
+      labels:
+        app: ecommerce
+        component: cache
+    spec:
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        ports:
+        - containerPort: 6379
+          name: redis
+        command:
+        - redis-server
+        - --appendonly
+        - "yes"
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "125m"
+          limits:
+            memory: "128Mi"
+            cpu: "250m"
+        livenessProbe:
+          tcpSocket:
+            port: redis
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - redis-cli
+            - ping
+          initialDelaySeconds: 5
+          periodSeconds: 5
+---
+# Backend Application Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: ecommerce-prod
+  labels:
+    app: ecommerce
+    component: backend
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 2
+  selector:
+    matchLabels:
+      app: ecommerce
+      component: backend
+  template:
+    metadata:
+      labels:
+        app: ecommerce
+        component: backend
+    spec:
+      initContainers:
+      - name: wait-for-db
+        image: busybox:1.35
+        command:
+        - sh
+        - -c
+        - "until nc -z database 5432; do echo waiting for database; sleep 2; done;"
+      containers:
+      - name: backend
+        image: ecommerce/backend:v2.1.0
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        - name: SPRING_PROFILES_ACTIVE
+          value: production
+        - name: DATABASE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: database-password
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: jwt-secret
+        - name: STRIPE_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: stripe-api-key
+        volumeMounts:
+        - name: app-config
+          mountPath: /app/config/application.properties
+          subPath: application.properties
+        - name: cache-config
+          mountPath: /app/config/cache-config.yaml
+          subPath: cache-config.yaml
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+        livenessProbe:
+          httpGet:
+            path: /actuator/health
+            port: http
+          initialDelaySeconds: 90
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /actuator/health/readiness
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+      volumes:
+      - name: app-config
+        configMap:
+          name: app-config
+      - name: cache-config
+        configMap:
+          name: app-config
+---
+# Frontend Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: ecommerce-prod
+  labels:
+    app: ecommerce
+    component: frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ecommerce
+      component: frontend
+  template:
+    metadata:
+      labels:
+        app: ecommerce
+        component: frontend
+    spec:
+      containers:
+      - name: frontend
+        image: ecommerce/frontend:v2.1.0
+        ports:
+        - containerPort: 80
+          name: http
+        env:
+        - name: API_BASE_URL
+          value: "http://backend:8080/api"
+        - name: NODE_ENV
+          value: "production"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "125m"
+          limits:
+            memory: "256Mi"
+            cpu: "250m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 5
+---
+# Persistent Volume Claim for Database
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+  namespace: ecommerce-prod
+  labels:
+    app: ecommerce
+    component: database
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: fast-ssd
+---
+# Database Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: database
+  namespace: ecommerce-prod
+  labels:
+    app: ecommerce
+    component: database
+spec:
+  selector:
+    app: ecommerce
+    component: database
+  ports:
+  - name: postgres
+    port: 5432
+    targetPort: postgres
+  type: ClusterIP
+---
+# Redis Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: ecommerce-prod
+  labels:
+    app: ecommerce
+    component: cache
+spec:
+  selector:
+    app: ecommerce
+    component: cache
+  ports:
+  - name: redis
+    port: 6379
+    targetPort: redis
+  type: ClusterIP
+---
+# Backend Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: ecommerce-prod
+  labels:
+    app: ecommerce
+    component: backend
+spec:
+  selector:
+    app: ecommerce
+    component: backend
+  ports:
+  - name: http
+    port: 8080
+    targetPort: http
+  type: ClusterIP
+---
+# Frontend Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: ecommerce-prod
+  labels:
+    app: ecommerce
+    component: frontend
+spec:
+  selector:
+    app: ecommerce
+    component: frontend
+  ports:
+  - name: http
+    port: 80
+    targetPort: http
+  type: ClusterIP
+---
+# Ingress for External Access
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ecommerce-ingress
+  namespace: ecommerce-prod
+  labels:
+    app: ecommerce
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+spec:
+  tls:
+  - hosts:
+    - ecommerce.example.com
+    - api.ecommerce.example.com
+    secretName: ecommerce-tls
+  rules:
+  - host: ecommerce.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: frontend
+            port:
+              number: 80
+  - host: api.ecommerce.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: backend
+            port:
+              number: 8080
+---
+# Horizontal Pod Autoscaler for Backend
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: backend-hpa
+  namespace: ecommerce-prod
+  labels:
+    app: ecommerce
+    component: backend
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: backend
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80

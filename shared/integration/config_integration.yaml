@@ -1,0 +1,212 @@
+# Integration Configuration Template
+# This file provides the complete configuration schema for the integration bridge
+
+schema_version: "2.1.0"
+description: "Unified configuration for backup, GitOps, and integration bridge components"
+
+# Storage configuration (MinIO)
+storage:
+  type: "minio"
+  endpoint: "${MINIO_ENDPOINT:-localhost:9000}"
+  access_key: "${MINIO_ACCESS_KEY}"
+  secret_key: "${MINIO_SECRET_KEY}"
+  bucket: "${MINIO_BUCKET:-k8s-backups}"
+  use_ssl: false
+  region: "us-east-1"
+  auto_create_bucket: true
+  fallback_buckets:
+    - "k8s-backups-fallback"
+    - "k8s-backups-emergency"
+  connection:
+    timeout: 30
+    max_retries: 3
+    retry_delay: "5s"
+
+# Kubernetes cluster configuration
+cluster:
+  name: "${CLUSTER_NAME:-default}"
+  domain: "${CLUSTER_DOMAIN:-cluster.local}"
+  kubeconfig_path: "${KUBECONFIG:-~/.kube/config}"
+  context: "${KUBE_CONTEXT}"
+  namespaces:
+    include: []  # Empty means all namespaces
+    exclude:
+      - "kube-system"
+      - "kube-public"
+      - "kube-node-lease"
+  resources:
+    include: ["deployments", "services", "configmaps", "secrets", "ingresses"]
+    exclude: []
+
+# Backup configuration
+backup:
+  schedule: "0 2 * * *"  # Daily at 2 AM
+  retention_days: 30
+  cleanup_on_startup: true
+  incremental: false
+  compression: true
+  encryption:
+    enabled: false
+    key_file: ""
+  notifications:
+    enabled: true
+    webhook:
+      url: "http://integration-bridge:8080/webhooks/backup/completed"
+      on_success: true
+      on_failure: true
+  error_handling:
+    continue_on_error: false
+    max_retries: 3
+    retry_delay: "10s"
+
+# GitOps configuration
+gitops:
+  repository: "${GITOPS_REPO}"
+  branch: "${GITOPS_BRANCH:-main}"
+  path: "clusters/${CLUSTER_NAME}"
+  commit_message_template: "Backup from ${CLUSTER_NAME} at ${TIMESTAMP}"
+  authentication:
+    method: "ssh"  # ssh, token, none
+    ssh_key_path: "${SSH_KEY_PATH:-~/.ssh/id_rsa}"
+    token: "${GIT_TOKEN}"
+  structure:
+    namespace_per_directory: true
+    group_by_type: false
+    include_metadata: true
+  transformations:
+    remove_status: true
+    remove_managed_fields: true
+    normalize_names: true
+  triggers:
+    auto_trigger: true
+    delay_after_backup: "30s"
+    parallel_execution: false
+    fallback_methods: ["webhook", "file"]
+
+# Pipeline configuration
+pipeline:
+  max_concurrent_backups: 2
+  backup_timeout: "3600s"
+  gitops_timeout: "1800s"
+  triggers:
+    enabled: true
+    trigger_methods: ["webhook", "process", "file"]
+    file_trigger:
+      enabled: false
+      directory: "/tmp/triggers"
+      cleanup_after_processing: true
+    process_trigger:
+      enabled: false
+      gitops_binary_path: "/usr/local/bin/minio-to-git"
+      additional_args: "--verbose"
+    webhook_trigger:
+      enabled: true
+      server_host: "0.0.0.0"
+      server_port: 9090
+      endpoint_path: "/trigger"
+      authentication:
+        enabled: false
+        token: ""
+        header_name: "Authorization"
+  notifications:
+    enabled: true
+    webhook:
+      url: "http://integration-bridge:8080/webhooks/pipeline/completed"
+      on_success: true
+      on_failure: true
+    slack:
+      webhook_url: "${SLACK_WEBHOOK_URL}"
+      channel: "#ops-alerts"
+
+# Observability configuration
+observability:
+  metrics:
+    enabled: true
+    port: 9091
+    path: "/metrics"
+  logging:
+    level: "info"
+    format: "json"
+    file: "/var/log/backup-integration.log"
+  tracing:
+    enabled: false
+    endpoint: "http://jaeger:14268/api/traces"
+    sample_rate: 0.1
+
+# Security configuration
+security:
+  secrets:
+    encryption_key: "${ENCRYPTION_KEY}"
+    vault_integration: false
+    vault_path: "secret/backup"
+  network:
+    allowed_hosts:
+      - "localhost"
+      - "127.0.0.1"
+      - "integration-bridge"
+      - "backup-tool"
+      - "gitops-generator"
+    tls_verify: true
+  validation:
+    strict_mode: true
+    schema_validation: true
+
+# Performance configuration
+performance:
+  memory_limit: "2Gi"
+  cpu_limit: "1000m"
+  optimization:
+    batch_processing: true
+    compression: true
+    caching: true
+    cache_ttl: 3600
+
+# Feature flags
+features:
+  experimental:
+    multi_cluster_support: false
+    incremental_backup: false
+    differential_sync: false
+  preview:
+    ui_dashboard: false
+    rest_api: true
+
+# Integration bridge configuration
+integration:
+  enabled: true
+  webhook_port: 8080
+  
+  # Bridge settings
+  bridge:
+    enabled: true
+    health_interval: "30s"
+    event_buffer_size: 1000
+    max_concurrency: 10
+  
+  # Cross-component communication
+  communication:
+    method: "webhook"
+    endpoints:
+      backup_tool: "${BACKUP_TOOL_ENDPOINT:-http://backup-tool:8080}"
+      gitops_generator: "${GITOPS_GENERATOR_ENDPOINT:-http://gitops-generator:8081}"
+      integration_bridge: "${INTEGRATION_BRIDGE_ENDPOINT:-http://integration-bridge:8080}"
+    authentication:
+      enabled: false
+      method: "token"
+      token: "${INTEGRATION_TOKEN}"
+      tls:
+        cert_file: ""
+        key_file: ""
+        ca_file: ""
+    retry:
+      max_attempts: 3
+      initial_delay: "1s"
+      max_delay: "30s"
+      multiplier: 2.0
+  
+  # Trigger integration
+  triggers:
+    auto_trigger: true
+    delay_after_backup: "30s"
+    parallel_execution: false
+    fallback_methods: ["webhook", "process"]

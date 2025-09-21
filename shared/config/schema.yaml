@@ -1,0 +1,343 @@
+# Shared Configuration Schema for Backup-to-GitOps Pipeline
+# This schema defines the unified configuration for both tools
+# Version: 1.0.0
+
+schema_version: "1.0.0"
+description: "Unified configuration for Kubernetes backup and GitOps generation pipeline"
+
+# Common MinIO/S3 Configuration
+storage:
+  type: "minio"  # minio or s3
+  endpoint: "${MINIO_ENDPOINT}"
+  access_key: "${MINIO_ACCESS_KEY}"
+  secret_key: "${MINIO_SECRET_KEY}"
+  bucket: "${MINIO_BUCKET:-cluster-backups}"
+  use_ssl: "${MINIO_USE_SSL:-true}"
+  region: "${MINIO_REGION:-us-east-1}"
+  
+  # Bucket management
+  auto_create_bucket: "${AUTO_CREATE_BUCKET:-false}"
+  fallback_buckets: []  # Alternative buckets if primary fails
+  
+  # Connection settings
+  connection:
+    timeout: "${CONNECTION_TIMEOUT:-30}"
+    max_retries: "${MAX_RETRIES:-3}"
+    retry_delay: "${RETRY_DELAY:-5s}"
+
+# Cluster Configuration
+cluster:
+  name: "${CLUSTER_NAME}"
+  domain: "${CLUSTER_DOMAIN:-cluster.local}"
+  type: "${CLUSTER_TYPE:-kubernetes}"  # kubernetes, openshift
+  
+  # Cluster-specific settings
+  openshift:
+    mode: "${OPENSHIFT_MODE:-auto-detect}"  # auto-detect, enabled, disabled
+    include_resources: "${INCLUDE_OPENSHIFT_RESOURCES:-true}"
+
+# Backup Configuration
+backup:
+  # Resource filtering
+  filtering:
+    mode: "${FILTERING_MODE:-whitelist}"  # whitelist, blacklist, hybrid
+    
+    resources:
+      include:
+        - deployments
+        - services
+        - configmaps
+        - persistentvolumeclaims
+        - statefulsets
+        - daemonsets
+        - ingresses
+      exclude:
+        - events
+        - pods
+        - replicasets
+        - endpoints
+    
+    namespaces:
+      include: []  # Empty means all non-excluded
+      exclude:
+        - kube-system
+        - kube-public
+        - kube-node-lease
+        - openshift
+        - openshift-*
+        - default
+    
+    # Advanced filtering
+    label_selector: "${LABEL_SELECTOR}"
+    annotation_selector: "${ANNOTATION_SELECTOR}"
+  
+  # Backup behavior
+  behavior:
+    batch_size: "${BATCH_SIZE:-50}"
+    validate_yaml: "${VALIDATE_YAML:-true}"
+    skip_invalid_resources: "${SKIP_INVALID:-true}"
+    include_managed_fields: "${INCLUDE_MANAGED_FIELDS:-false}"
+    include_status: "${INCLUDE_STATUS:-false}"
+    max_resource_size: "${MAX_RESOURCE_SIZE:-10Mi}"
+    follow_owner_references: "${FOLLOW_OWNER_REFS:-false}"
+  
+  # Cleanup policy
+  cleanup:
+    enabled: "${ENABLE_CLEANUP:-true}"
+    retention_days: "${RETENTION_DAYS:-7}"
+    cleanup_on_startup: "${CLEANUP_ON_STARTUP:-false}"
+
+# GitOps Configuration
+gitops:
+  # Git repository settings
+  repository:
+    url: "${GIT_REPOSITORY}"
+    branch: "${GIT_BRANCH:-main}"
+    
+    # Authentication (choose one method)
+    auth:
+      method: "${GIT_AUTH_METHOD:-ssh}"  # ssh, pat, basic, none
+      
+      ssh:
+        private_key_path: "${GIT_SSH_KEY:-~/.ssh/id_rsa}"
+        passphrase: "${GIT_SSH_PASSPHRASE}"
+        
+      pat:
+        token: "${GIT_PAT_TOKEN}"
+        username: "${GIT_PAT_USERNAME}"  # Optional for some platforms
+        
+      basic:
+        username: "${GIT_USERNAME}"
+        password: "${GIT_PASSWORD}"
+  
+  # GitOps structure generation
+  structure:
+    base_dir: "${GITOPS_BASE_DIR:-namespaces}"
+    
+    # Environment configuration
+    environments:
+      - name: dev
+        cluster_url: "${DEV_CLUSTER_URL}"
+        auto_sync: true
+        replicas: 1
+      - name: test
+        cluster_url: "${TEST_CLUSTER_URL}"
+        auto_sync: true
+        replicas: 1
+      - name: preprod
+        cluster_url: "${PREPROD_CLUSTER_URL}"
+        auto_sync: false
+        replicas: 2
+      - name: prod
+        cluster_url: "${PROD_CLUSTER_URL}"
+        auto_sync: false
+        replicas: 3
+    
+    # ArgoCD configuration
+    argocd:
+      enabled: "${ARGOCD_ENABLED:-true}"
+      namespace: "${ARGOCD_NAMESPACE:-argocd}"
+      project: "${ARGOCD_PROJECT:-default}"
+      sync_policy:
+        automated: "${ARGOCD_AUTO_SYNC:-false}"
+        prune: "${ARGOCD_PRUNE:-false}"
+        self_heal: "${ARGOCD_SELF_HEAL:-false}"
+    
+    # Kustomize configuration
+    kustomize:
+      enabled: "${KUSTOMIZE_ENABLED:-true}"
+      strategic_merge: true
+
+# Pipeline Integration
+pipeline:
+  # Execution mode
+  mode: "${PIPELINE_MODE:-sequential}"  # sequential, parallel, manual
+  
+  # Backup to GitOps automation
+  automation:
+    enabled: "${AUTO_GITOPS:-true}"
+    trigger_on_backup_complete: true
+    wait_for_backup: "${WAIT_FOR_BACKUP:-true}"
+    max_wait_time: "${MAX_WAIT_TIME:-300}"
+    
+    # Auto-trigger configuration
+    trigger_methods:
+      - "${TRIGGER_METHOD_1:-file}"
+      - "${TRIGGER_METHOD_2:-process}"
+      - "${TRIGGER_METHOD_3:-webhook}"
+    
+    # File-based triggering
+    file_trigger:
+      enabled: "${FILE_TRIGGER_ENABLED:-true}"
+      directory: "${TRIGGER_DIRECTORY:-/tmp/backup-gitops-triggers}"
+      cleanup_after_processing: "${CLEANUP_TRIGGERS:-true}"
+    
+    # Process-based triggering
+    process_trigger:
+      enabled: "${PROCESS_TRIGGER_ENABLED:-true}"
+      gitops_binary_path: "${GITOPS_BINARY_PATH}"
+      additional_args: "${GITOPS_ARGS}"
+    
+    # Webhook-based triggering
+    webhook_trigger:
+      enabled: "${WEBHOOK_TRIGGER_ENABLED:-false}"
+      server_host: "${WEBHOOK_HOST:-0.0.0.0}"
+      server_port: "${WEBHOOK_PORT:-8080}"
+      endpoint_path: "${WEBHOOK_PATH:-/webhook/backup-complete}"
+      authentication:
+        enabled: "${WEBHOOK_AUTH_ENABLED:-false}"
+        token: "${WEBHOOK_AUTH_TOKEN}"
+        header_name: "${WEBHOOK_AUTH_HEADER:-Authorization}"
+  
+  # Notification settings
+  notifications:
+    enabled: "${NOTIFICATIONS_ENABLED:-false}"
+    
+    webhook:
+      url: "${WEBHOOK_URL}"
+      on_success: true
+      on_failure: true
+    
+    slack:
+      webhook_url: "${SLACK_WEBHOOK_URL}"
+      channel: "${SLACK_CHANNEL:-#backup-notifications}"
+  
+  # Error handling
+  error_handling:
+    continue_on_error: "${CONTINUE_ON_ERROR:-false}"
+    max_retries: "${PIPELINE_RETRIES:-3}"
+    retry_delay: "${PIPELINE_RETRY_DELAY:-30s}"
+
+# Observability
+observability:
+  # Metrics
+  metrics:
+    enabled: "${METRICS_ENABLED:-true}"
+    port: "${METRICS_PORT:-8080}"
+    path: "${METRICS_PATH:-/metrics}"
+  
+  # Logging
+  logging:
+    level: "${LOG_LEVEL:-info}"  # debug, info, warning, error
+    format: "${LOG_FORMAT:-json}"  # json, text
+    file: "${LOG_FILE}"  # Optional log file
+    
+  # Tracing
+  tracing:
+    enabled: "${TRACING_ENABLED:-false}"
+    endpoint: "${TRACING_ENDPOINT}"
+    sample_rate: "${TRACING_SAMPLE_RATE:-0.1}"
+
+# Security Configuration
+security:
+  # Secret management
+  secrets:
+    provider: "${SECRET_PROVIDER:-env}"  # env, vault, aws-secrets, azure-keyvault
+    
+    vault:
+      address: "${VAULT_ADDR}"
+      token: "${VAULT_TOKEN}"
+      path: "${VAULT_PATH:-secret/backup}"
+    
+    aws_secrets:
+      region: "${AWS_REGION}"
+      secret_name: "${AWS_SECRET_NAME}"
+    
+    azure_keyvault:
+      vault_name: "${AZURE_KEYVAULT_NAME}"
+      tenant_id: "${AZURE_TENANT_ID}"
+  
+  # Network security
+  network:
+    verify_ssl: "${VERIFY_SSL:-true}"
+    ca_bundle: "${CA_BUNDLE_PATH}"
+    client_cert: "${CLIENT_CERT_PATH}"
+    client_key: "${CLIENT_KEY_PATH}"
+  
+  # Validation
+  validation:
+    strict_mode: "${STRICT_VALIDATION:-true}"
+    scan_for_secrets: "${SCAN_SECRETS:-true}"
+    max_file_size: "${MAX_FILE_SIZE:-50Mi}"
+
+# Performance Configuration
+performance:
+  # Resource limits
+  limits:
+    max_concurrent_operations: "${MAX_CONCURRENT:-10}"
+    memory_limit: "${MEMORY_LIMIT:-2Gi}"
+    cpu_limit: "${CPU_LIMIT:-2}"
+  
+  # Optimization
+  optimization:
+    batch_processing: "${BATCH_PROCESSING:-true}"
+    compression: "${ENABLE_COMPRESSION:-true}"
+    caching: "${ENABLE_CACHING:-true}"
+    cache_ttl: "${CACHE_TTL:-300}"
+  
+  # HTTP Client Configuration
+  http:
+    # Connection pooling
+    max_idle_conns: "${HTTP_MAX_IDLE_CONNS:-100}"
+    max_idle_conns_per_host: "${HTTP_MAX_IDLE_CONNS_PER_HOST:-20}"
+    max_conns_per_host: "${HTTP_MAX_CONNS_PER_HOST:-50}"
+    idle_conn_timeout: "${HTTP_IDLE_CONN_TIMEOUT:-90s}"
+    keep_alive: "${HTTP_KEEP_ALIVE:-30s}"
+    
+    # Timeouts
+    dial_timeout: "${HTTP_DIAL_TIMEOUT:-10s}"
+    request_timeout: "${HTTP_REQUEST_TIMEOUT:-30s}"
+    response_timeout: "${HTTP_RESPONSE_TIMEOUT:-30s}"
+    tls_handshake_timeout: "${HTTP_TLS_HANDSHAKE_TIMEOUT:-10s}"
+    
+    # Performance options
+    compression_enabled: "${HTTP_COMPRESSION_ENABLED:-true}"
+    user_agent: "${HTTP_USER_AGENT:-shared-config-http-client/1.0}"
+    max_response_size: "${HTTP_MAX_RESPONSE_SIZE:-10485760}" # 10MB
+    
+    # Retry configuration
+    max_retries: "${HTTP_MAX_RETRIES:-3}"
+    retry_delay: "${HTTP_RETRY_DELAY:-1s}"
+    backoff_factor: "${HTTP_BACKOFF_FACTOR:-2.0}"
+    jitter_enabled: "${HTTP_JITTER_ENABLED:-true}"
+    
+    # Circuit breaker
+    circuit_breaker_enabled: "${HTTP_CIRCUIT_BREAKER_ENABLED:-true}"
+    failure_threshold: "${HTTP_FAILURE_THRESHOLD:-5}"
+    circuit_breaker_timeout: "${HTTP_CIRCUIT_BREAKER_TIMEOUT:-30s}"
+    circuit_breaker_reset_time: "${HTTP_CIRCUIT_BREAKER_RESET_TIME:-60s}"
+    
+    # Profile-specific settings
+    profiles:
+      webhook:
+        max_conns_per_host: "${WEBHOOK_MAX_CONNS_PER_HOST:-20}"
+        request_timeout: "${WEBHOOK_REQUEST_TIMEOUT:-30s}"
+        max_retries: "${WEBHOOK_MAX_RETRIES:-3}"
+        
+      storage:
+        max_conns_per_host: "${STORAGE_MAX_CONNS_PER_HOST:-100}"
+        request_timeout: "${STORAGE_REQUEST_TIMEOUT:-120s}"
+        max_retries: "${STORAGE_MAX_RETRIES:-5}"
+        max_response_size: "${STORAGE_MAX_RESPONSE_SIZE:-104857600}" # 100MB
+        
+      api:
+        max_conns_per_host: "${API_MAX_CONNS_PER_HOST:-50}"
+        request_timeout: "${API_REQUEST_TIMEOUT:-60s}"
+        max_retries: "${API_MAX_RETRIES:-3}"
+        
+      monitoring:
+        max_conns_per_host: "${MONITORING_MAX_CONNS_PER_HOST:-10}"
+        request_timeout: "${MONITORING_REQUEST_TIMEOUT:-10s}"
+        max_retries: "${MONITORING_MAX_RETRIES:-1}"
+        circuit_breaker_enabled: "${MONITORING_CIRCUIT_BREAKER_ENABLED:-false}"
+
+# Feature Flags
+features:
+  experimental:
+    multi_cluster_support: "${MULTI_CLUSTER:-false}"
+    incremental_backup: "${INCREMENTAL_BACKUP:-false}"
+    differential_sync: "${DIFFERENTIAL_SYNC:-false}"
+    
+  preview:
+    ui_dashboard: "${UI_DASHBOARD:-false}"
+    rest_api: "${REST_API:-false}"

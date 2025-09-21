@@ -1,0 +1,234 @@
+# Test cluster configuration for integration testing
+test_clusters:
+  production:
+    name: "production"
+    endpoint: "https://k8s-prod.example.com"
+    region: "us-east-1"
+    version: "1.28.0"
+    node_count: 5
+    storage_classes:
+      - name: "fast-ssd"
+        provisioner: "ebs.csi.aws.com"
+        parameters:
+          type: "gp3"
+          iops: "3000"
+      - name: "standard"
+        provisioner: "ebs.csi.aws.com" 
+        parameters:
+          type: "gp2"
+    backup_schedule: "0 2 * * *"
+    retention_days: 30
+    
+  staging:
+    name: "staging"
+    endpoint: "https://k8s-staging.example.com"
+    region: "us-west-2"
+    version: "1.27.0"
+    node_count: 3
+    storage_classes:
+      - name: "standard"
+        provisioner: "ebs.csi.aws.com"
+        parameters:
+          type: "gp2"
+    backup_schedule: "0 3 * * *"
+    retention_days: 7
+    
+  development:
+    name: "development"
+    endpoint: "https://k8s-dev.example.com"
+    region: "us-west-1"
+    version: "1.26.0"
+    node_count: 2
+    storage_classes:
+      - name: "standard"
+        provisioner: "ebs.csi.aws.com"
+        parameters:
+          type: "gp2"
+    backup_schedule: "0 4 * * 1"
+    retention_days: 3
+
+# Test backup configurations
+backup_configs:
+  small_backup:
+    id: "backup-2024-01-15-small"
+    cluster: "development"
+    size_mb: 10
+    resource_count: 25
+    namespaces: ["test-app"]
+    created_at: "2024-01-15T10:30:00Z"
+    status: "completed"
+    
+  medium_backup:
+    id: "backup-2024-01-15-medium"
+    cluster: "staging" 
+    size_mb: 150
+    resource_count: 200
+    namespaces: ["app1", "app2", "monitoring"]
+    created_at: "2024-01-15T11:30:00Z"
+    status: "completed"
+    
+  large_backup:
+    id: "backup-2024-01-15-large"
+    cluster: "production"
+    size_mb: 500
+    resource_count: 1000
+    namespaces: ["ecommerce-prod", "auth", "payments", "notifications", "monitoring", "logging"]
+    created_at: "2024-01-15T02:00:00Z"
+    status: "completed"
+
+# Disaster recovery scenarios for testing
+dr_scenarios:
+  cluster_rebuild:
+    id: "scenario-cluster-rebuild"
+    name: "Complete Cluster Rebuild"
+    description: "Rebuild entire cluster from backup after total failure"
+    source_cluster: "production"
+    target_cluster: "production-new"
+    backup_id: "backup-2024-01-15-large"
+    estimated_duration_minutes: 120
+    automation_level: "assisted"
+    prerequisites:
+      - "New cluster provisioned"
+      - "Network connectivity established"
+      - "Storage volumes created"
+      - "DNS records updated"
+    validation_steps:
+      - "Verify all namespaces restored"
+      - "Check all pods are running"
+      - "Validate persistent volumes"
+      - "Test application functionality"
+      - "Verify external connectivity"
+      
+  namespace_recovery:
+    id: "scenario-namespace-recovery"
+    name: "Selective Namespace Recovery"
+    description: "Recover specific namespaces after corruption"
+    source_cluster: "production"
+    target_cluster: "production"
+    backup_id: "backup-2024-01-15-large"
+    target_namespaces: ["ecommerce-prod"]
+    estimated_duration_minutes: 30
+    automation_level: "automated"
+    conflict_strategy: "overwrite"
+    validation_steps:
+      - "Verify namespace resources restored"
+      - "Check application pods running"
+      - "Validate data integrity"
+      - "Test API endpoints"
+      
+  cross_cluster_migration:
+    id: "scenario-cross-cluster-migration"
+    name: "Cross-Cluster Migration"
+    description: "Migrate workloads between clusters"
+    source_cluster: "staging"
+    target_cluster: "production"
+    backup_id: "backup-2024-01-15-medium"
+    estimated_duration_minutes: 45
+    automation_level: "assisted"
+    namespace_mapping:
+      "app1": "app1-prod"
+      "app2": "app2-prod"
+    validation_steps:
+      - "Verify namespace mapping"
+      - "Check resource transformation"
+      - "Validate configuration updates"
+      - "Test application connectivity"
+
+# Test authentication configurations
+auth_configs:
+  admin_user:
+    username: "test-admin"
+    token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test-admin-token"
+    permissions:
+      - "restore:*"
+      - "backup:read"
+      - "cluster:*"
+      - "dr:execute"
+      
+  operator_user:
+    username: "test-operator"
+    token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test-operator-token"
+    permissions:
+      - "restore:read"
+      - "restore:create"
+      - "backup:read"
+      - "cluster:read"
+      
+  readonly_user:
+    username: "test-readonly"
+    token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test-readonly-token"
+    permissions:
+      - "restore:read"
+      - "backup:read"
+      - "cluster:read"
+
+# Performance test configurations
+performance_configs:
+  load_test_small:
+    concurrent_requests: 10
+    duration_seconds: 60
+    target_endpoints:
+      - "/api/v1/restore"
+      - "/api/v1/restore/history"
+      - "/api/v1/backups"
+    expected_response_time_ms: 200
+    expected_success_rate: 99.5
+    
+  load_test_medium:
+    concurrent_requests: 50
+    duration_seconds: 300
+    target_endpoints:
+      - "/api/v1/restore"
+      - "/api/v1/dr/execute"
+      - "/api/v1/clusters"
+    expected_response_time_ms: 500
+    expected_success_rate: 99.0
+    
+  stress_test:
+    concurrent_requests: 100
+    duration_seconds: 600
+    target_endpoints:
+      - "/api/v1/restore"
+      - "/api/v1/restore/{restoreId}"
+      - "/api/v1/dr/execute"
+    expected_response_time_ms: 1000
+    expected_success_rate: 95.0
+
+# Error simulation configurations
+error_configs:
+  network_failures:
+    - type: "connection_timeout"
+      target: "minio"
+      probability: 0.1
+      duration_seconds: 30
+    - type: "dns_failure"
+      target: "k8s_api"
+      probability: 0.05
+      duration_seconds: 15
+      
+  auth_failures:
+    - type: "expired_token"
+      probability: 0.1
+    - type: "insufficient_permissions"
+      probability: 0.05
+    - type: "invalid_credentials"
+      probability: 0.02
+      
+  storage_failures:
+    - type: "disk_full"
+      target: "minio"
+      probability: 0.02
+    - type: "corruption"
+      target: "backup_data"
+      probability: 0.01
+
+# Environment settings for testing
+environment:
+  base_url: "http://localhost:8080"
+  timeout_seconds: 30
+  retry_attempts: 3
+  log_level: "INFO"
+  parallel_workers: 5
+  cleanup_after_test: true
+  save_test_artifacts: true
+  artifacts_directory: "./test-artifacts"

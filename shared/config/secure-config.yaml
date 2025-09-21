@@ -1,0 +1,443 @@
+schema_version: "2.1.0"
+description: "Production-ready secure configuration for backup-to-GitOps pipeline"
+
+# Storage Configuration (MinIO/S3)
+storage:
+  type: minio
+  endpoint: "${MINIO_ENDPOINT}"
+  access_key: "${MINIO_ACCESS_KEY}"
+  secret_key: "${MINIO_SECRET_KEY}"
+  bucket: "${CLUSTER_NAME}-backups"
+  use_ssl: true
+  region: "${MINIO_REGION:-us-east-1}"
+  auto_create_bucket: true
+  
+  connection:
+    timeout: 30
+    max_retries: 3
+    retry_delay: 5s
+  
+  security:
+    verify_ssl: true
+    cert_path: "${TLS_CERT_PATH}"
+    key_path: "${TLS_KEY_PATH}"
+    ca_path: "${TLS_CA_PATH}"
+
+# Cluster Configuration
+cluster:
+  name: "${CLUSTER_NAME}"
+  domain: "${CLUSTER_DOMAIN:-cluster.local}"
+  type: kubernetes
+  kubeconfig_path: "${KUBECONFIG:-~/.kube/config}"
+
+# Backup Configuration
+backup:
+  filtering:
+    mode: "whitelist"
+    resources:
+      include:
+        - deployments
+        - services
+        - configmaps
+        - secrets
+        - persistentvolumeclaims
+        - ingresses
+      exclude:
+        - events
+        - pods
+        - replicasets
+    namespaces:
+      exclude:
+        - kube-system
+        - kube-public
+        - kube-node-lease
+  
+  behavior:
+    batch_size: 25
+    validate_yaml: true
+    skip_invalid_resources: true
+    include_managed_fields: false
+    include_status: false
+    max_resource_size: "10Mi"
+  
+  cleanup:
+    enabled: true
+    retention_days: 30
+    cleanup_on_startup: false
+
+# GitOps Configuration
+gitops:
+  repository:
+    url: "${GITOPS_REPO_URL}"
+    branch: "${GITOPS_BRANCH:-main}"
+    path: "clusters/${CLUSTER_NAME}"
+    auth:
+      method: "${GITOPS_AUTH_METHOD:-ssh}"
+      ssh:
+        private_key_path: "${GITOPS_SSH_KEY_PATH}"
+        passphrase: "${GITOPS_SSH_PASSPHRASE}"
+      pat:
+        token: "${GITOPS_PAT_TOKEN}"
+        username: "${GITOPS_USERNAME}"
+      basic:
+        username: "${GITOPS_USERNAME}"
+        password: "${GITOPS_PASSWORD}"
+  
+  structure:
+    base_dir: "namespaces"
+    environments:
+      - name: production
+        cluster_url: "${CLUSTER_API_URL}"
+        auto_sync: false
+        replicas: 3
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+    
+    argocd:
+      enabled: true
+      namespace: "argocd"
+      project: "backup-restore"
+      sync_policy:
+        automated: false
+        prune: false
+        self_heal: false
+      retry:
+        limit: 5
+        backoff:
+          duration: "5s"
+          factor: 2
+          max_duration: "3m"
+
+# Pipeline Configuration
+pipeline:
+  mode: "sequential"
+  automation:
+    enabled: true
+    trigger_on_backup_complete: true
+    wait_for_backup: true
+    max_wait_time: 600
+    webhook_trigger:
+      enabled: true
+      authentication:
+        enabled: true
+        method: "api_key"
+        api_key: "${WEBHOOK_API_KEY}"
+  
+  notifications:
+    enabled: true
+    webhook:
+      url: "${NOTIFICATION_WEBHOOK_URL}"
+      timeout: 30
+      retry_attempts: 3
+    slack:
+      webhook_url: "${SLACK_WEBHOOK_URL}"
+      channel: "#backup-notifications"
+      mention_on_failure: true
+  
+  error_handling:
+    continue_on_error: false
+    max_retries: 3
+    retry_delay: 60s
+    escalation:
+      enabled: true
+      threshold: 3
+      notification_url: "${ESCALATION_WEBHOOK_URL}"
+
+# Security Configuration
+security:
+  enabled: true
+  strict_mode: true
+  
+  secrets:
+    provider: "vault"
+    vault:
+      address: "${VAULT_ADDR}"
+      token: "${VAULT_TOKEN}"
+      mount_path: "secret"
+      key_path: "backup-gitops"
+    encryption:
+      algorithm: "AES-256-GCM"
+      key_derivation: "PBKDF2"
+      iterations: 100000
+    scanning:
+      enabled: true
+      patterns:
+        - "password"
+        - "secret"
+        - "key"
+        - "token"
+        - "credential"
+  
+  authentication:
+    enabled: true
+    methods:
+      - "api_key"
+      - "mtls"
+      - "bearer_token"
+    session:
+      timeout: 1800
+      max_sessions: 100
+      cleanup_interval: 300
+    rate_limiting:
+      enabled: true
+      requests_per_minute: 100
+      burst_limit: 20
+      block_duration: 900
+  
+  authorization:
+    enabled: true
+    rbac:
+      enabled: true
+      roles:
+        - name: "admin"
+          permissions:
+            - "system:admin"
+            - "backup:read"
+            - "backup:write"
+            - "gitops:read"
+            - "gitops:write"
+            - "webhook:access"
+        - name: "backup-service"
+          permissions:
+            - "backup:read"
+            - "backup:write"
+            - "webhook:backup"
+        - name: "gitops-service"
+          permissions:
+            - "gitops:read"
+            - "gitops:write"
+            - "webhook:gitops"
+        - name: "readonly"
+          permissions:
+            - "backup:read"
+            - "gitops:read"
+            - "status:read"
+  
+  network:
+    tls:
+      enabled: true
+      min_version: "1.3"
+      cipher_suites:
+        - "TLS_AES_256_GCM_SHA384"
+        - "TLS_CHACHA20_POLY1305_SHA256"
+      cert_file: "${TLS_CERT_FILE}"
+      key_file: "${TLS_KEY_FILE}"
+      ca_file: "${TLS_CA_FILE}"
+    mtls:
+      enabled: true
+      client_cert_required: true
+      verify_client_cert: true
+    verify_ssl: true
+    allowed_hosts:
+      - "*.cluster.local"
+      - "backup-service"
+      - "gitops-service"
+      - "integration-bridge"
+  
+  input_validation:
+    enabled: true
+    max_request_size: "1MB"
+    max_json_depth: 10
+    sanitization:
+      enabled: true
+      remove_html: true
+      escape_sql: true
+    patterns:
+      block_sql_injection: true
+      block_xss: true
+      block_path_traversal: true
+  
+  audit:
+    enabled: true
+    log_path: "/var/log/backup-gitops/security-audit.log"
+    log_level: "info"
+    max_size: 100
+    max_backups: 10
+    max_age: 30
+    events:
+      - "authentication"
+      - "authorization"
+      - "webhook_access"
+      - "configuration_change"
+      - "security_violation"
+      - "admin_action"
+  
+  vulnerability_scanning:
+    enabled: true
+    schedule: "0 2 * * *"  # Daily at 2 AM
+    targets:
+      - "configuration"
+      - "dependencies"
+      - "network"
+    reporting:
+      enabled: true
+      format: "json"
+      destination: "/var/log/backup-gitops/vulnerability-reports/"
+
+# Integration Configuration
+integration:
+  enabled: true
+  webhook_port: 8443
+  
+  communication:
+    method: "webhook"
+    security:
+      authentication: true
+      encryption: true
+      signature_verification: true
+    endpoints:
+      backup_tool: "${BACKUP_SERVICE_ENDPOINT:-https://backup-service:8443}"
+      gitops_generator: "${GITOPS_SERVICE_ENDPOINT:-https://gitops-service:8443}"
+      integration_bridge: "${INTEGRATION_BRIDGE_ENDPOINT:-https://integration-bridge:8443}"
+    
+    timeouts:
+      connect: 10
+      read: 30
+      write: 30
+    
+    retry:
+      attempts: 3
+      delay: 5s
+      exponential_backoff: true
+      max_delay: 60s
+  
+  triggers:
+    auto_trigger: true
+    delay_after_backup: "30s"
+    max_trigger_time: 300
+    health_check_interval: 30s
+    
+  circuit_breaker:
+    enabled: true
+    failure_threshold: 5
+    recovery_timeout: 60s
+    half_open_max_calls: 3
+
+# Observability Configuration
+observability:
+  metrics:
+    enabled: true
+    port: 9090
+    path: "/metrics"
+    namespace: "backup_gitops"
+    labels:
+      cluster: "${CLUSTER_NAME}"
+      environment: "${ENVIRONMENT:-production}"
+    collectors:
+      - "system"
+      - "application"
+      - "security"
+  
+  logging:
+    level: "${LOG_LEVEL:-info}"
+    format: "json"
+    file: "/var/log/backup-gitops/application.log"
+    max_size: 100
+    max_backups: 5
+    max_age: 30
+    fields:
+      service: "backup-gitops"
+      cluster: "${CLUSTER_NAME}"
+      version: "${APP_VERSION:-1.0.0}"
+  
+  tracing:
+    enabled: true
+    endpoint: "${TRACING_ENDPOINT}"
+    service_name: "backup-gitops-${CLUSTER_NAME}"
+    sample_rate: 0.1
+    headers:
+      - "trace-id"
+      - "span-id"
+      - "baggage"
+  
+  health_checks:
+    enabled: true
+    interval: 30s
+    timeout: 10s
+    endpoints:
+      - name: "storage"
+        url: "${MINIO_ENDPOINT}/minio/health/live"
+        critical: true
+      - name: "kubernetes"
+        url: "${CLUSTER_API_URL}/healthz"
+        critical: true
+      - name: "gitops-repo"
+        url: "${GITOPS_REPO_URL}"
+        critical: false
+  
+  alerting:
+    enabled: true
+    rules:
+      - name: "backup_failure"
+        condition: "backup_failures_total > 3"
+        severity: "critical"
+        notification: "webhook"
+      - name: "gitops_sync_failure"
+        condition: "gitops_sync_failures_total > 2"
+        severity: "warning"
+        notification: "slack"
+      - name: "security_violation"
+        condition: "security_violations_total > 0"
+        severity: "critical"
+        notification: "webhook"
+    
+    notifications:
+      webhook:
+        url: "${ALERT_WEBHOOK_URL}"
+        timeout: 30
+        retry_attempts: 3
+      slack:
+        webhook_url: "${SLACK_WEBHOOK_URL}"
+        channel: "#alerts"
+
+# Performance Configuration
+performance:
+  concurrency:
+    max_workers: 10
+    queue_size: 100
+    timeout: 300
+  
+  caching:
+    enabled: true
+    ttl: 300
+    max_size: "100MB"
+    type: "memory"
+  
+  compression:
+    enabled: true
+    algorithm: "gzip"
+    level: 6
+  
+  limits:
+    max_memory: "1GB"
+    max_cpu: "2"
+    max_disk: "10GB"
+
+# Compliance Configuration
+compliance:
+  frameworks:
+    - "SOC2"
+    - "ISO27001"
+    - "NIST"
+  
+  data_retention:
+    backup_data: 90  # days
+    audit_logs: 365  # days
+    metrics: 30      # days
+    traces: 7        # days
+  
+  privacy:
+    anonymize_logs: true
+    encrypt_sensitive_data: true
+    data_classification: "confidential"
+  
+  reporting:
+    enabled: true
+    schedule: "0 1 * * 0"  # Weekly on Sunday at 1 AM
+    format: "json"
+    destination: "/var/log/backup-gitops/compliance-reports/"

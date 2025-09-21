@@ -1,0 +1,449 @@
+# GitHub Actions workflow for comprehensive integration testing
+name: Integration Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'restore/**'
+      - 'integration/**'
+      - 'monitoring/**'
+      - 'security/**'
+      - 'tests/**'
+      - '.github/workflows/integration-tests.yml'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'restore/**'
+      - 'integration/**'
+      - 'monitoring/**'
+      - 'security/**'
+      - 'tests/**'
+      - '.github/workflows/integration-tests.yml'
+  schedule:
+    # Run integration tests daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      test_suite:
+        description: 'Test suite to run'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - api
+          - workflows
+          - performance
+          - security
+          - chaos
+      performance_tests:
+        description: 'Include performance tests'
+        required: false
+        default: false
+        type: boolean
+      environment:
+        description: 'Test environment'
+        required: true
+        default: 'docker'
+        type: choice
+        options:
+          - docker
+          - kubernetes
+
+env:
+  GO_VERSION: '1.21'
+  DOCKER_BUILDKIT: '1'
+  COMPOSE_DOCKER_CLI_BUILD: '1'
+
+jobs:
+  # Job 1: Basic validation and setup
+  validate:
+    name: Validate and Setup
+    runs-on: ubuntu-latest
+    outputs:
+      test_suite: ${{ steps.config.outputs.test_suite }}
+      performance_tests: ${{ steps.config.outputs.performance_tests }}
+      environment: ${{ steps.config.outputs.environment }}
+      matrix: ${{ steps.config.outputs.matrix }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Cache Go modules
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Configure test execution
+        id: config
+        run: |
+          # Determine test configuration based on trigger
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "test_suite=${{ github.event.inputs.test_suite }}" >> $GITHUB_OUTPUT
+            echo "performance_tests=${{ github.event.inputs.performance_tests }}" >> $GITHUB_OUTPUT
+            echo "environment=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "test_suite=all" >> $GITHUB_OUTPUT
+            echo "performance_tests=true" >> $GITHUB_OUTPUT
+            echo "environment=docker" >> $GITHUB_OUTPUT
+          else
+            echo "test_suite=all" >> $GITHUB_OUTPUT
+            echo "performance_tests=false" >> $GITHUB_OUTPUT
+            echo "environment=docker" >> $GITHUB_OUTPUT
+          fi
+          
+          # Create test matrix
+          if [ "${{ github.event.inputs.test_suite || 'all' }}" = "all" ]; then
+            echo 'matrix={"suite": ["api", "workflows", "components", "security"]}' >> $GITHUB_OUTPUT
+          else
+            echo 'matrix={"suite": ["${{ github.event.inputs.test_suite || 'api' }}"]}' >> $GITHUB_OUTPUT
+          fi
+
+      - name: Validate Go modules
+        run: |
+          go mod verify
+          go mod tidy
+          git diff --exit-code go.mod go.sum
+
+      - name: Run static analysis
+        run: |
+          go vet ./...
+          if command -v staticcheck &> /dev/null; then
+            staticcheck ./...
+          fi
+
+      - name: Check test files
+        run: |
+          # Verify test files are present
+          find tests/ -name "*_test.go" -type f | head -10
+          echo "Found $(find tests/ -name "*_test.go" -type f | wc -l) test files"
+
+  # Job 2: Unit tests (fast feedback)
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    needs: validate
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Run unit tests
+        run: |
+          go test -v -race -timeout 10m -coverprofile=coverage.out ./...
+          go tool cover -func=coverage.out
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage.out
+          flags: unit-tests
+          name: unit-test-coverage
+
+  # Job 3: Integration tests matrix
+  integration-tests:
+    name: Integration Tests (${{ matrix.suite }})
+    runs-on: ubuntu-latest
+    needs: [validate, unit-tests]
+    strategy:
+      matrix: ${{ fromJson(needs.validate.outputs.matrix) }}
+      fail-fast: false
+    timeout-minutes: 60
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq curl
+
+      - name: Start test environment
+        run: |
+          cd tests/docker
+          docker-compose -f docker-compose.test.yml up -d --build
+          
+          # Wait for services to be ready
+          echo "Waiting for services to be ready..."
+          for i in {1..30}; do
+            if docker-compose -f docker-compose.test.yml ps | grep -q "unhealthy"; then
+              echo "Waiting for services... ($i/30)"
+              sleep 10
+            else
+              echo "Services are ready"
+              break
+            fi
+          done
+
+      - name: Run integration tests
+        env:
+          TEST_SUITE: ${{ matrix.suite }}
+          TEST_TIMEOUT: 30m
+          VERBOSE: true
+        run: |
+          ./tests/scripts/run_integration_tests.sh \
+            --suite ${{ matrix.suite }} \
+            --environment docker \
+            --verbose \
+            --timeout 30m \
+            --no-cleanup
+
+      - name: Collect test logs
+        if: always()
+        run: |
+          # Collect container logs
+          cd tests/docker
+          docker-compose -f docker-compose.test.yml logs > ../../test-reports/docker-logs-${{ matrix.suite }}.log 2>&1 || true
+          
+          # Collect system information
+          docker-compose -f docker-compose.test.yml ps > ../../test-reports/container-status-${{ matrix.suite }}.log || true
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-reports-${{ matrix.suite }}
+          path: |
+            test-reports/
+            test-artifacts/
+          retention-days: 7
+
+      - name: Upload coverage
+        if: always() && matrix.suite != 'performance'
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./test-reports/coverage-${{ matrix.suite }}.out
+          flags: integration-tests,${{ matrix.suite }}
+          name: integration-${{ matrix.suite }}-coverage
+
+      - name: Cleanup test environment
+        if: always()
+        run: |
+          cd tests/docker
+          docker-compose -f docker-compose.test.yml down --volumes --remove-orphans || true
+
+  # Job 4: Performance tests (conditional)
+  performance-tests:
+    name: Performance Tests
+    runs-on: ubuntu-latest
+    needs: [validate, unit-tests]
+    if: needs.validate.outputs.performance_tests == 'true'
+    timeout-minutes: 90
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Start performance test environment
+        run: |
+          cd tests/docker
+          # Use higher resource limits for performance tests
+          export COMPOSE_FILE=docker-compose.test.yml
+          docker-compose up -d --build
+          
+          # Wait for services
+          sleep 60
+
+      - name: Run performance tests
+        run: |
+          ./tests/scripts/run_integration_tests.sh \
+            --suite performance \
+            --environment docker \
+            --performance \
+            --timeout 60m \
+            --no-cleanup
+
+      - name: Process performance results
+        if: always()
+        run: |
+          # Extract performance metrics
+          if [ -f test-reports/test-performance-*.log ]; then
+            grep -E "(requests per second|latency|success rate)" test-reports/test-performance-*.log > test-reports/performance-summary.txt || true
+          fi
+
+      - name: Upload performance reports
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: performance-test-reports
+          path: |
+            test-reports/
+            test-artifacts/
+          retention-days: 14
+
+      - name: Cleanup
+        if: always()
+        run: |
+          cd tests/docker
+          docker-compose -f docker-compose.test.yml down --volumes --remove-orphans || true
+
+  # Job 5: Security tests
+  security-tests:
+    name: Security Tests
+    runs-on: ubuntu-latest
+    needs: [validate, unit-tests]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Run security scans
+        run: |
+          # Install gosec
+          go install github.com/securecodewarrior/gosec/v2/cmd/gosec@latest
+          
+          # Run security scan
+          gosec -fmt json -out security-report.json ./...
+
+      - name: Run integration security tests
+        run: |
+          ./tests/scripts/run_integration_tests.sh \
+            --suite security \
+            --environment docker \
+            --timeout 20m
+
+      - name: Upload security reports
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: security-test-reports
+          path: |
+            security-report.json
+            test-reports/
+          retention-days: 30
+
+  # Job 6: Test results summary
+  test-summary:
+    name: Test Summary
+    runs-on: ubuntu-latest
+    needs: [integration-tests, performance-tests, security-tests]
+    if: always()
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v3
+        with:
+          path: artifacts/
+
+      - name: Generate test summary
+        run: |
+          echo "# Integration Test Summary" > test-summary.md
+          echo "" >> test-summary.md
+          echo "**Test Run:** $(date)" >> test-summary.md
+          echo "**Commit:** ${{ github.sha }}" >> test-summary.md
+          echo "**Trigger:** ${{ github.event_name }}" >> test-summary.md
+          echo "" >> test-summary.md
+          
+          # Count test files
+          total_artifacts=$(find artifacts/ -name "test-reports-*" | wc -l)
+          echo "**Test Suites:** $total_artifacts" >> test-summary.md
+          
+          # Check for failures
+          if find artifacts/ -name "*.log" -exec grep -l "FAIL" {} \; | head -1 > /dev/null; then
+            echo "**Status:** ❌ Some tests failed" >> test-summary.md
+          else
+            echo "**Status:** ✅ All tests passed" >> test-summary.md
+          fi
+          
+          echo "" >> test-summary.md
+          echo "## Test Results by Suite" >> test-summary.md
+          
+          for suite_dir in artifacts/test-reports-*/; do
+            if [ -d "$suite_dir" ]; then
+              suite_name=$(basename "$suite_dir" | sed 's/test-reports-//')
+              echo "- **$suite_name**: Available in artifacts" >> test-summary.md
+            fi
+          done
+
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const summary = fs.readFileSync('test-summary.md', 'utf8');
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: summary
+            });
+
+      - name: Upload final summary
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-summary
+          path: test-summary.md
+          retention-days: 30
+
+  # Job 7: Cleanup and notification
+  cleanup:
+    name: Cleanup and Notify
+    runs-on: ubuntu-latest
+    needs: [test-summary]
+    if: always()
+    steps:
+      - name: Notify on failure
+        if: failure()
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const runUrl = `https://github.com/${owner}/${repo}/actions/runs/${context.runId}`;
+            
+            console.log(`Integration tests failed. Run URL: ${runUrl}`);
+            
+            // Could send notifications to Slack, email, etc.
+
+      - name: Set status
+        run: |
+          if [ "${{ needs.test-summary.result }}" = "success" ]; then
+            echo "Integration tests completed successfully"
+            exit 0
+          else
+            echo "Integration tests failed"
+            exit 1
+          fi

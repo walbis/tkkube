@@ -1,0 +1,199 @@
+# Docker Compose configuration for integration testing environment
+version: '3.8'
+
+services:
+  # Mock MinIO Storage
+  minio:
+    image: minio/minio:latest
+    container_name: test-minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: testuser
+      MINIO_ROOT_PASSWORD: testpassword123
+      MINIO_DEFAULT_BUCKETS: test-backups
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    networks:
+      - test-network
+
+  # Mock Kubernetes API Server
+  k8s-mock:
+    image: nginx:alpine
+    container_name: test-k8s-api
+    ports:
+      - "8443:443"
+    volumes:
+      - ./k8s-mock-config:/etc/nginx/conf.d
+    depends_on:
+      - mock-server
+    networks:
+      - test-network
+
+  # Mock server for various endpoints
+  mock-server:
+    image: mockserver/mockserver:latest
+    container_name: test-mock-server
+    ports:
+      - "1080:1080"
+    environment:
+      MOCKSERVER_PROPERTY_FILE: /config/mockserver.properties
+      MOCKSERVER_INITIALIZATION_JSON_PATH: /config/expectations.json
+    volumes:
+      - ./mock-server:/config
+    networks:
+      - test-network
+
+  # Redis for caching (if needed)
+  redis:
+    image: redis:7-alpine
+    container_name: test-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --requirepass testpassword
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - test-network
+
+  # PostgreSQL for metadata storage (if needed)
+  postgres:
+    image: postgres:14-alpine
+    container_name: test-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: testdb
+      POSTGRES_USER: testuser
+      POSTGRES_PASSWORD: testpassword
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U testuser -d testdb"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - test-network
+
+  # Test runner container
+  test-runner:
+    build:
+      context: ..
+      dockerfile: tests/docker/Dockerfile.test
+    container_name: test-runner
+    environment:
+      - TEST_ENV=docker
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=testuser
+      - MINIO_SECRET_KEY=testpassword123
+      - K8S_ENDPOINT=k8s-mock:443
+      - REDIS_ENDPOINT=redis:6379
+      - POSTGRES_ENDPOINT=postgres:5432
+      - POSTGRES_USER=testuser
+      - POSTGRES_PASSWORD=testpassword
+      - POSTGRES_DB=testdb
+    volumes:
+      - ../../../:/app
+      - test_reports:/app/test-reports
+      - test_artifacts:/app/test-artifacts
+    depends_on:
+      minio:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      k8s-mock:
+        condition: service_started
+      mock-server:
+        condition: service_started
+    networks:
+      - test-network
+    command: |
+      sh -c "
+        echo 'Waiting for services to be ready...'
+        sleep 30
+        echo 'Running integration tests...'
+        go test -v ./tests/integration/... -timeout 30m -race -cover -coverprofile=coverage.out
+        echo 'Running performance tests...'
+        go test -v ./tests/integration/performance/... -timeout 60m -bench=. -benchmem
+        echo 'Tests completed'
+      "
+
+  # Monitoring for test metrics
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: test-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus:/etc/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - test-network
+
+  # Grafana for visualization
+  grafana:
+    image: grafana/grafana:latest
+    container_name: test-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    depends_on:
+      - prometheus
+    networks:
+      - test-network
+
+  # Jaeger for distributed tracing
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: test-jaeger
+    ports:
+      - "16686:16686"
+      - "14268:14268"
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    networks:
+      - test-network
+
+volumes:
+  minio_data:
+    driver: local
+  postgres_data:
+    driver: local
+  grafana_data:
+    driver: local
+  test_reports:
+    driver: local
+  test_artifacts:
+    driver: local
+
+networks:
+  test-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

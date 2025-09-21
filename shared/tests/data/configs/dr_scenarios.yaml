@@ -1,0 +1,353 @@
+# Comprehensive Disaster Recovery Scenarios for Testing
+
+scenarios:
+  # 1. Complete Infrastructure Failure
+  total_cluster_failure:
+    id: "dr-001-total-failure"
+    name: "Total Cluster Infrastructure Failure"
+    description: "Complete cluster failure requiring full rebuild from backup"
+    severity: "critical"
+    estimated_rto_minutes: 240  # Recovery Time Objective
+    estimated_rpo_minutes: 60   # Recovery Point Objective
+    
+    triggers:
+      - "Complete hardware failure"
+      - "Data center outage"
+      - "Cloud region failure"
+      - "Network infrastructure failure"
+      
+    prerequisites:
+      - "Recent backup available"
+      - "Alternative infrastructure provisioned"
+      - "Network connectivity established"
+      - "DNS and load balancer updated"
+      - "Storage systems available"
+      
+    steps:
+      - phase: "assessment"
+        duration_minutes: 15
+        actions:
+          - "Confirm scope of failure"
+          - "Identify last good backup"
+          - "Assess infrastructure requirements"
+          - "Notify stakeholders"
+          
+      - phase: "infrastructure_setup"
+        duration_minutes: 60
+        actions:
+          - "Provision new cluster infrastructure"
+          - "Configure networking and security"
+          - "Set up storage systems"
+          - "Install backup/restore tools"
+          
+      - phase: "data_restoration"
+        duration_minutes: 120
+        actions:
+          - "Restore cluster state from backup"
+          - "Restore application data"
+          - "Verify data integrity"
+          - "Apply any incremental changes"
+          
+      - phase: "service_validation"
+        duration_minutes: 30
+        actions:
+          - "Verify all services running"
+          - "Test application functionality"
+          - "Validate external connectivity"
+          - "Confirm monitoring and alerting"
+          
+      - phase: "traffic_cutover"
+        duration_minutes: 15
+        actions:
+          - "Update DNS records"
+          - "Redirect traffic to new cluster"
+          - "Monitor for issues"
+          - "Confirm full service restoration"
+    
+    validation_criteria:
+      - "All critical applications operational"
+      - "Data loss within RPO limits"
+      - "Performance within acceptable range"
+      - "All monitoring systems functional"
+      - "Security policies enforced"
+      
+    rollback_plan:
+      - "Maintain old cluster if possible"
+      - "DNS-based traffic routing"
+      - "Incremental data sync"
+      
+  # 2. Namespace Corruption
+  namespace_corruption:
+    id: "dr-002-namespace-corruption"
+    name: "Critical Namespace Data Corruption"
+    description: "Data corruption in critical production namespace"
+    severity: "high"
+    estimated_rto_minutes: 45
+    estimated_rpo_minutes: 15
+    
+    triggers:
+      - "Application deployment gone wrong"
+      - "Database corruption"
+      - "Configuration error"
+      - "Malicious activity"
+      
+    affected_resources:
+      - "Deployments and pods"
+      - "Services and ingresses"
+      - "ConfigMaps and secrets"
+      - "Persistent volumes"
+      - "Custom resources"
+      
+    steps:
+      - phase: "isolation"
+        duration_minutes: 5
+        actions:
+          - "Isolate affected namespace"
+          - "Stop traffic to affected services"
+          - "Backup current state for forensics"
+          
+      - phase: "assessment"
+        duration_minutes: 10
+        actions:
+          - "Assess scope of corruption"
+          - "Identify clean backup point"
+          - "Determine recovery strategy"
+          
+      - phase: "restoration"
+        duration_minutes: 20
+        actions:
+          - "Restore namespace from backup"
+          - "Apply configuration changes"
+          - "Restore data from clean backup"
+          
+      - phase: "validation"
+        duration_minutes: 10
+        actions:
+          - "Verify application functionality"
+          - "Test data integrity"
+          - "Restore traffic routing"
+    
+    automation_level: "semi-automated"
+    manual_approvals:
+      - "Confirm corruption scope"
+      - "Approve restoration strategy"
+      - "Authorize traffic restoration"
+      
+  # 3. Multi-Region Failover
+  multi_region_failover:
+    id: "dr-003-region-failover"
+    name: "Multi-Region Disaster Recovery Failover"
+    description: "Failover to secondary region due to primary region failure"
+    severity: "critical"
+    estimated_rto_minutes: 90
+    estimated_rpo_minutes: 30
+    
+    geography:
+      primary_region: "us-east-1"
+      secondary_region: "us-west-2"
+      backup_region: "eu-west-1"
+      
+    data_replication:
+      strategy: "async_replication"
+      frequency_minutes: 15
+      lag_tolerance_minutes: 30
+      
+    steps:
+      - phase: "failover_decision"
+        duration_minutes: 10
+        actions:
+          - "Confirm primary region failure"
+          - "Assess secondary region readiness"
+          - "Notify incident response team"
+          
+      - phase: "dns_failover"
+        duration_minutes: 5
+        actions:
+          - "Update DNS to secondary region"
+          - "Verify DNS propagation"
+          - "Monitor traffic patterns"
+          
+      - phase: "application_activation"
+        duration_minutes: 30
+        actions:
+          - "Scale up secondary region applications"
+          - "Restore from latest backup if needed"
+          - "Verify all services operational"
+          
+      - phase: "data_synchronization"
+        duration_minutes: 35
+        actions:
+          - "Assess data consistency"
+          - "Apply any missing transactions"
+          - "Verify data integrity"
+          
+      - phase: "service_validation"
+        duration_minutes: 10
+        actions:
+          - "Test critical business functions"
+          - "Verify external integrations"
+          - "Confirm monitoring active"
+    
+    automated_components:
+      - "Health monitoring"
+      - "DNS failover"
+      - "Application scaling"
+      - "Basic validation tests"
+      
+    manual_components:
+      - "Failover decision"
+      - "Data consistency verification"
+      - "Business function validation"
+      - "External partner notification"
+      
+  # 4. Security Incident Response
+  security_incident:
+    id: "dr-004-security-incident"
+    name: "Security Incident Recovery"
+    description: "Recovery from security breach or compromise"
+    severity: "critical"
+    estimated_rto_minutes: 180
+    estimated_rpo_minutes: 0
+    
+    incident_types:
+      - "Malware infection"
+      - "Unauthorized access"
+      - "Data exfiltration"
+      - "Ransomware attack"
+      - "Supply chain compromise"
+      
+    steps:
+      - phase: "immediate_response"
+        duration_minutes: 15
+        actions:
+          - "Isolate affected systems"
+          - "Preserve evidence"
+          - "Assess breach scope"
+          - "Notify security team"
+          
+      - phase: "containment"
+        duration_minutes: 30
+        actions:
+          - "Block malicious traffic"
+          - "Revoke compromised credentials"
+          - "Patch security vulnerabilities"
+          - "Implement additional monitoring"
+          
+      - phase: "clean_restoration"
+        duration_minutes: 120
+        actions:
+          - "Restore from clean backup"
+          - "Rebuild compromised systems"
+          - "Update security configurations"
+          - "Verify system integrity"
+          
+      - phase: "hardening"
+        duration_minutes: 15
+        actions:
+          - "Apply additional security measures"
+          - "Update access controls"
+          - "Enhance monitoring rules"
+          - "Document lessons learned"
+    
+    security_requirements:
+      - "Forensic data preservation"
+      - "Chain of custody maintenance"
+      - "Compliance reporting"
+      - "Legal notification requirements"
+      
+  # 5. Application-Specific Recovery
+  critical_app_failure:
+    id: "dr-005-app-failure"
+    name: "Critical Application Failure Recovery"
+    description: "Recovery of business-critical application after failure"
+    severity: "high"
+    estimated_rto_minutes: 60
+    estimated_rpo_minutes: 10
+    
+    application_tiers:
+      - tier: "frontend"
+        recovery_priority: 2
+        dependencies: ["backend", "cdn"]
+        
+      - tier: "backend"
+        recovery_priority: 1
+        dependencies: ["database", "cache", "message_queue"]
+        
+      - tier: "database"
+        recovery_priority: 1
+        dependencies: ["storage", "network"]
+        
+      - tier: "cache"
+        recovery_priority: 3
+        dependencies: ["network"]
+        
+    recovery_sequence:
+      - "Restore database and persistent storage"
+      - "Restore backend services and APIs"
+      - "Restore caching and message queue"
+      - "Restore frontend and load balancers"
+      - "Verify end-to-end functionality"
+      
+    data_consistency_checks:
+      - "Database integrity verification"
+      - "Transaction log validation"
+      - "Cross-service data consistency"
+      - "Cache coherency verification"
+      
+  # 6. Gradual Degradation Recovery
+  gradual_degradation:
+    id: "dr-006-degradation"
+    name: "System Degradation Recovery"
+    description: "Recovery from gradual system performance degradation"
+    severity: "medium"
+    estimated_rto_minutes: 30
+    estimated_rpo_minutes: 5
+    
+    degradation_indicators:
+      - "Increased response times"
+      - "Higher error rates"
+      - "Resource exhaustion"
+      - "Memory leaks"
+      - "Database connection issues"
+      
+    recovery_strategies:
+      - strategy: "rolling_restart"
+        conditions: ["memory_leak", "connection_pool_exhaustion"]
+        duration_minutes: 15
+        
+      - strategy: "traffic_reduction"
+        conditions: ["resource_exhaustion", "high_load"]
+        duration_minutes: 10
+        
+      - strategy: "configuration_rollback"
+        conditions: ["recent_config_change", "performance_regression"]
+        duration_minutes: 5
+        
+      - strategy: "emergency_scaling"
+        conditions: ["resource_shortage", "traffic_spike"]
+        duration_minutes: 10
+
+# Test execution configuration
+test_execution:
+  parallel_scenarios: 3
+  timeout_minutes: 300
+  retry_attempts: 2
+  cleanup_between_tests: true
+  
+  validation_requirements:
+    - "All scenarios must complete within RTO"
+    - "Data loss must not exceed RPO"
+    - "All validation criteria must pass"
+    - "Rollback procedures must be tested"
+    
+  success_criteria:
+    rto_compliance: 95  # percentage
+    rpo_compliance: 98  # percentage
+    validation_pass_rate: 100  # percentage
+    automation_coverage: 80  # percentage
+    
+  reporting:
+    - "Scenario execution summary"
+    - "RTO/RPO compliance report"
+    - "Failure analysis and root causes"
+    - "Recommendations for improvement"

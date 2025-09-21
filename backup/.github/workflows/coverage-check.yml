@@ -1,0 +1,250 @@
+# Coverage Quality Gate Workflow
+# Comprehensive test coverage verification for CI/CD pipeline
+
+name: Coverage Quality Gates
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # Run coverage analysis daily at 2 AM UTC
+    - cron: '0 2 * * *'
+
+env:
+  GO_VERSION: '1.21'
+  COVERAGE_THRESHOLD: 80
+  CRITICAL_THRESHOLD: 90
+
+jobs:
+  coverage-analysis:
+    name: Coverage Analysis and Quality Gates
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Full history for trend analysis
+    
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ env.GO_VERSION }}
+    
+    - name: Cache Go modules
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+    
+    - name: Install dependencies
+      run: |
+        go mod download
+        go mod verify
+    
+    - name: Install coverage tools
+      run: |
+        go install golang.org/x/tools/cmd/cover@latest
+    
+    - name: Set up Python for dashboard
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+    
+    - name: Run coverage analysis
+      id: coverage
+      run: |
+        chmod +x scripts/coverage-analysis.sh
+        if ./scripts/coverage-analysis.sh --ci-mode; then
+          echo "status=success" >> $GITHUB_OUTPUT
+          echo "All coverage quality gates passed ✅"
+        elif [ $? -eq 1 ]; then
+          echo "status=warning" >> $GITHUB_OUTPUT
+          echo "Some coverage thresholds not met ⚠️"
+        elif [ $? -eq 2 ]; then
+          echo "status=critical" >> $GITHUB_OUTPUT
+          echo "Critical path coverage violations detected 🚨"
+          exit 1
+        else
+          echo "status=error" >> $GITHUB_OUTPUT
+          echo "Coverage analysis failed ❌"
+          exit 1
+        fi
+    
+    - name: Generate coverage dashboard
+      if: always()
+      run: |
+        python3 scripts/coverage-dashboard.py
+    
+    - name: Upload coverage reports
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: coverage-reports-${{ github.sha }}
+        path: |
+          coverage/reports/
+          coverage/dashboard.html
+        retention-days: 30
+    
+    - name: Archive coverage data
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: coverage-data-${{ github.sha }}
+        path: |
+          coverage/trends/
+        retention-days: 90
+    
+    - name: Comment PR with coverage results
+      if: github.event_name == 'pull_request' && always()
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          const path = 'coverage/reports/latest.json';
+          
+          if (!fs.existsSync(path)) {
+            console.log('Coverage report not found');
+            return;
+          }
+          
+          const coverage = JSON.parse(fs.readFileSync(path, 'utf8'));
+          const status = '${{ steps.coverage.outputs.status }}';
+          
+          let statusIcon = '✅';
+          let statusText = 'All quality gates passed';
+          
+          if (status === 'warning') {
+            statusIcon = '⚠️';
+            statusText = 'Some thresholds not met';
+          } else if (status === 'critical') {
+            statusIcon = '🚨';
+            statusText = 'Critical violations detected';
+          } else if (status === 'error') {
+            statusIcon = '❌';
+            statusText = 'Analysis failed';
+          }
+          
+          // Calculate module statistics
+          const modules = coverage.modules || [];
+          const totalModules = modules.length;
+          const passingModules = modules.filter(m => m.coverage >= m.threshold).length;
+          const criticalModules = modules.filter(m => m.is_critical).length;
+          const criticalPassing = modules.filter(m => m.is_critical && m.coverage >= coverage.critical_threshold).length;
+          
+          const comment = `## Coverage Report ${statusIcon}
+          
+          **Overall Status:** ${statusText}
+          
+          ### Summary
+          - **Overall Coverage:** ${coverage.overall_coverage.toFixed(1)}% (Target: ${coverage.global_threshold}%)
+          - **Modules Passing:** ${passingModules}/${totalModules} (${(passingModules/totalModules*100).toFixed(1)}%)
+          - **Critical Paths:** ${criticalPassing}/${criticalModules} passing
+          
+          ### Module Breakdown
+          | Module | Coverage | Threshold | Status | Type |
+          |--------|----------|-----------|--------|------|
+          ${modules.map(m => {
+            const status = m.coverage >= m.threshold ? '✅ PASS' : '❌ FAIL';
+            const type = m.is_critical ? '🔴 Critical' : '🔵 Normal';
+            return `| \`${m.name}\` | ${m.coverage.toFixed(1)}% | ${m.threshold}% | ${status} | ${type} |`;
+          }).join('\n')}
+          
+          ### Quality Gates
+          - **Global Coverage Gate:** ${coverage.meets_global_threshold ? '✅ PASS' : '❌ FAIL'}
+          - **Critical Path Gate:** ${criticalPassing === criticalModules ? '✅ PASS' : '❌ FAIL'}
+          
+          ---
+          📊 [View detailed coverage report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+          `;
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: comment
+          });
+    
+    - name: Set commit status
+      if: always()
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const status = '${{ steps.coverage.outputs.status }}';
+          let state = 'success';
+          let description = 'All coverage quality gates passed';
+          
+          if (status === 'warning') {
+            state = 'success';  // Don't fail build for warnings
+            description = 'Coverage thresholds not met but not blocking';
+          } else if (status === 'critical') {
+            state = 'failure';
+            description = 'Critical path coverage violations detected';
+          } else if (status === 'error') {
+            state = 'failure';
+            description = 'Coverage analysis failed';
+          }
+          
+          github.rest.repos.createCommitStatus({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            sha: context.sha,
+            state: state,
+            target_url: `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+            description: description,
+            context: 'ci/coverage-quality-gates'
+          });
+
+  coverage-trend-analysis:
+    name: Coverage Trend Analysis
+    runs-on: ubuntu-latest
+    needs: coverage-analysis
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Download coverage data
+      uses: actions/download-artifact@v3
+      with:
+        name: coverage-data-${{ github.sha }}
+        path: coverage/trends/
+    
+    - name: Analyze coverage trends
+      run: |
+        # Check if coverage is declining over last 5 commits
+        if [ -f coverage/trends/coverage_trends.csv ]; then
+          echo "Analyzing coverage trends..."
+          
+          # Get last 5 data points
+          tail -n 6 coverage/trends/coverage_trends.csv | tail -n +2 > recent_trends.csv
+          
+          if [ -s recent_trends.csv ]; then
+            # Calculate trend
+            first_coverage=$(head -n 1 recent_trends.csv | cut -d',' -f2)
+            last_coverage=$(tail -n 1 recent_trends.csv | cut -d',' -f2)
+            
+            trend_diff=$(echo "$last_coverage - $first_coverage" | bc -l)
+            
+            echo "Coverage trend over last 5 commits: ${trend_diff}%"
+            
+            # Alert if declining significantly
+            if (( $(echo "$trend_diff < -2.0" | bc -l) )); then
+              echo "⚠️ Coverage declining significantly: ${trend_diff}%"
+              echo "Consider reviewing recent changes for test coverage"
+            elif (( $(echo "$trend_diff > 2.0" | bc -l) )); then
+              echo "✅ Coverage improving: +${trend_diff}%"
+            else
+              echo "📊 Coverage stable: ${trend_diff}%"
+            fi
+          fi
+        fi
