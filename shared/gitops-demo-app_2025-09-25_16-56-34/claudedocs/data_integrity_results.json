@@ -1,0 +1,142 @@
+{
+  "backup_source_files": [
+    "/home/tkkaray/inceleme/shared/gitops-demo-app_2025-09-25_16-56-34/claudedocs/../backup-source/configmaps.yaml",
+    "/home/tkkaray/inceleme/shared/gitops-demo-app_2025-09-25_16-56-34/claudedocs/../backup-source/services.yaml",
+    "/home/tkkaray/inceleme/shared/gitops-demo-app_2025-09-25_16-56-34/claudedocs/../backup-source/deployments.yaml",
+    "/home/tkkaray/inceleme/shared/gitops-demo-app_2025-09-25_16-56-34/claudedocs/../backup-source/backup-summary.yaml"
+  ],
+  "gitops_base_files": [
+    "/home/tkkaray/inceleme/shared/gitops-demo-app_2025-09-25_16-56-34/claudedocs/../base/configmaps.yaml",
+    "/home/tkkaray/inceleme/shared/gitops-demo-app_2025-09-25_16-56-34/claudedocs/../base/services.yaml",
+    "/home/tkkaray/inceleme/shared/gitops-demo-app_2025-09-25_16-56-34/claudedocs/../base/kustomization.yaml",
+    "/home/tkkaray/inceleme/shared/gitops-demo-app_2025-09-25_16-56-34/claudedocs/../base/deployments.yaml",
+    "/home/tkkaray/inceleme/shared/gitops-demo-app_2025-09-25_16-56-34/claudedocs/../base/backup-summary.yaml"
+  ],
+  "resource_comparison": {
+    "resource_counts": {
+      "source": {
+        "ConfigMap": 3,
+        "Service": 1,
+        "Deployment": 1
+      },
+      "target": {
+        "ConfigMap": 1,
+        "Service": 1,
+        "Kustomization": 1,
+        "Deployment": 1
+      }
+    },
+    "missing_kinds": [],
+    "extra_kinds": [
+      "Kustomization"
+    ],
+    "resource_details": {
+      "Service": {
+        "source_count": 1,
+        "target_count": 1,
+        "missing_in_target": [],
+        "extra_in_target": [],
+        "common_resources": [
+          [
+            "Service",
+            "demo-app",
+            "test-service"
+          ]
+        ]
+      },
+      "ConfigMap": {
+        "source_count": 3,
+        "target_count": 1,
+        "missing_in_target": [
+          [
+            "ConfigMap",
+            "demo-app",
+            "test-config"
+          ],
+          [
+            "ConfigMap",
+            "demo-app",
+            "openshift-service-ca.crt"
+          ],
+          [
+            "ConfigMap",
+            "demo-app",
+            "kube-root-ca.crt"
+          ]
+        ],
+        "extra_in_target": [
+          [
+            "ConfigMap",
+            "default",
+            "unnamed"
+          ]
+        ],
+        "common_resources": []
+      },
+      "Kustomization": {
+        "source_count": 0,
+        "target_count": 1,
+        "missing_in_target": [],
+        "extra_in_target": [
+          [
+            "Kustomization",
+            "demo-app",
+            "demo-app-restore-base"
+          ]
+        ],
+        "common_resources": []
+      },
+      "Deployment": {
+        "source_count": 1,
+        "target_count": 1,
+        "missing_in_target": [],
+        "extra_in_target": [],
+        "common_resources": [
+          [
+            "Deployment",
+            "demo-app",
+            "test-app"
+          ]
+        ]
+      }
+    }
+  },
+  "missing_resources": [],
+  "extra_resources": [],
+  "data_mismatches": [],
+  "structure_issues": [
+    {
+      "type": "missing_metadata",
+      "location": "target",
+      "file": "configmaps.yaml",
+      "resource": "ConfigMap/unknown",
+      "description": "Missing metadata section"
+    }
+  ],
+  "transformation_analysis": {
+    "field_removals": {},
+    "field_modifications": {},
+    "common_transformations": [],
+    "quality_improvements": [],
+    "potential_issues": []
+  },
+  "quality_metrics": {
+    "completeness": {
+      "resource_preservation_rate": 80.0,
+      "data_integrity_rate": 0.0,
+      "structural_quality_score": 0.0
+    },
+    "transformation": {
+      "system_field_cleanup_rate": 0.0,
+      "quality_improvement_count": 0,
+      "potential_issue_count": 0
+    },
+    "overall": {
+      "data_integrity_score": 32.0,
+      "transformation_quality_score": 100.0,
+      "readiness_for_deployment": "not_ready"
+    }
+  },
+  "errors": [],
+  "warnings": []
+}

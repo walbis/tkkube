@@ -1,0 +1,27 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+    name: demo-app-restore
+    namespace: argocd
+    labels:
+        app.kubernetes.io/component: backup-restore
+        app.kubernetes.io/managed-by: gitops-pipeline
+        app.kubernetes.io/name: demo-app
+        backup.source.cluster: crc-cluster
+spec:
+    project: default
+    source:
+        repoURL: https://github.com/your-org/gitops-repo.git
+        path: gitops-demo-app_2025-09-25_16-56-34/overlays/development
+        targetRevision: HEAD
+    destination:
+        server: https://kubernetes.default.svc
+        namespace: demo-app
+    syncPolicy:
+        automated:
+            prune: true
+            selfHeal: true
+        syncOptions:
+            - CreateNamespace=true
+            - PruneLast=true
+            - ApplyOutOfSyncOnly=true

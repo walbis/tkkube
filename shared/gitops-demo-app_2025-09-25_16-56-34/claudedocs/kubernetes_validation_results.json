@@ -1,0 +1,11 @@
+{
+  "kubectl_available": true,
+  "kubernetes_files": [],
+  "dry_run_results": {},
+  "schema_validation": {},
+  "best_practices": {},
+  "total_manifests": 0,
+  "valid_manifests": 0,
+  "warnings": [],
+  "errors": []
+}

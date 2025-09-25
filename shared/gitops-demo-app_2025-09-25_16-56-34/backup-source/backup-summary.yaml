@@ -1,0 +1,15 @@
+# GitOps Managed Resource
+# Source: backup_demo-app_2025-09-25_16-56-34
+# Cluster: crc-cluster
+# Namespace: demo-app
+# Pipeline: backup-to-gitops
+# Generated: 2025-09-25T17:12:31+03:00
+---
+backup_directory: backup_demo-app_2025-09-25_16-56-34
+cluster: crc-cluster
+namespace: demo-app
+resources:
+  configmaps: 3
+  deployments: 1
+  services: 1
+timestamp: "2025-09-25T16:56:34+03:00"

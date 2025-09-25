@@ -1,0 +1,32 @@
+artifacts_generated:
+    argocd_application: argocd/application.yaml
+    backup_sources:
+        - deployments.yaml
+        - services.yaml
+        - configmaps.yaml
+    base_kustomization: base/kustomization.yaml
+    environment_overlays:
+        - development
+        - staging
+        - production
+    flux_manifests:
+        - flux/gitrepository.yaml
+        - flux/kustomization.yaml
+deployment_instructions:
+    argocd:
+        step1: kubectl apply -f argocd/application.yaml
+        step2: ArgoCD will automatically sync the application
+    flux:
+        step1: kubectl apply -f flux/
+        step2: Flux will automatically reconcile the resources
+    manual:
+        step1: kubectl apply -k overlays/development
+        step2: 'Verify deployment: kubectl get all -n demo-app'
+pipeline_execution:
+    application_name: demo-app-restore
+    backup_source: backup_demo-app_2025-09-25_16-56-34
+    cluster: crc-cluster
+    gitops_output: gitops-demo-app_2025-09-25_16-56-34
+    namespace: demo-app
+    status: SUCCESS
+    timestamp: "2025-09-25T17:12:31+03:00"

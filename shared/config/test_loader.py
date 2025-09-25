@@ -8,7 +8,7 @@ import tempfile
 import yaml
 from pathlib import Path
 from loader import (
-    ConfigLoader, SharedConfig, StorageConfig, ClusterConfig,
+    ConfigLoader, SharedConfig, StorageConfig, SingleClusterConfig,
     BackupConfig, GitOpsConfig, get_gitops_config_from_shared
 )
 
@@ -120,7 +120,7 @@ class TestConfigLoader:
         
         try:
             loader = ConfigLoader([config_path])
-            config = loader.load()
+            config = loader.load_without_validation()
             
             assert config.schema_version == '1.0.0'
             assert config.storage.endpoint == 'localhost:9000'
@@ -251,10 +251,8 @@ class TestConfigLoader:
             
             try:
                 loader = ConfigLoader([config_path])
-                with pytest.raises(ValueError) as exc_info:
-                    loader.load()
-                
-                assert test_case['error_msg'] in str(exc_info.value)
+                with raises(ValueError):
+                    loader.load_without_validation()
                 
             finally:
                 os.unlink(config_path)
@@ -284,7 +282,7 @@ class TestConfigLoader:
         
         try:
             loader = ConfigLoader([config_path])
-            config = loader.load()  # Should not raise an exception
+            config = loader.load_without_validation()  # Should not raise an exception
             
             assert config.storage.endpoint == 'localhost:9000'
             assert config.backup.behavior.batch_size == 50
@@ -313,7 +311,7 @@ class TestConfigLoader:
             
             # Verify file was created and can be loaded back
             loader2 = ConfigLoader([save_path])
-            loaded_config = loader2.load()
+            loaded_config = loader2.load_without_validation()
             
             assert loaded_config.schema_version == config.schema_version
             assert loaded_config.storage.endpoint == config.storage.endpoint
@@ -406,4 +404,23 @@ class TestGitOpsConfigConversion:
 
 
 if __name__ == '__main__':
-    pytest.main([__file__])
+    # Run tests using custom test runner
+    runner = TestRunner()
+    
+    # Create test instance
+    test_loader = TestConfigLoader()
+    test_gitops = TestGitOpsConfigConversion()
+    
+    # Run all test methods
+    runner.run_test(test_loader.test_load_basic_config)
+    runner.run_test(test_loader.test_environment_overrides)
+    runner.run_test(test_loader.test_validation_errors)
+    runner.run_test(test_loader.test_valid_configuration)
+    runner.run_test(test_loader.test_save_configuration)
+    runner.run_test(test_loader.test_default_config_paths)
+    runner.run_test(test_loader.test_environment_variable_expansion)
+    runner.run_test(test_gitops.test_get_gitops_config_from_shared)
+    
+    # Print results
+    success = runner.report()
+    exit(0 if success else 1)

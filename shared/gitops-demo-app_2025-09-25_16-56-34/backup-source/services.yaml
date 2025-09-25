@@ -1,0 +1,57 @@
+# GitOps Managed Resource
+# Source: backup_demo-app_2025-09-25_16-56-34
+# Cluster: crc-cluster
+# Namespace: demo-app
+# Pipeline: backup-to-gitops
+# Generated: 2025-09-25T17:12:31+03:00
+---
+- metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"v1","kind":"Service","metadata":{"annotations":{},"name":"test-service","namespace":"demo-app"},"spec":{"ports":[{"port":80,"targetPort":80}],"selector":{"app":"test-app"}}}
+    creationTimestamp: "2025-09-25T11:10:08Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:kubectl.kubernetes.io/last-applied-configuration: {}
+        f:spec:
+          f:internalTrafficPolicy: {}
+          f:ports:
+            .: {}
+            k:{"port":80,"protocol":"TCP"}:
+              .: {}
+              f:port: {}
+              f:protocol: {}
+              f:targetPort: {}
+          f:selector: {}
+          f:sessionAffinity: {}
+          f:type: {}
+      manager: kubectl-client-side-apply
+      operation: Update
+      time: "2025-09-25T11:10:08Z"
+    name: test-service
+    namespace: demo-app
+    resourceVersion: "551014"
+    uid: adc19661-0c20-498f-aaa8-a74d5df8d19d
+  spec:
+    clusterIP: 10.217.5.71
+    clusterIPs:
+    - 10.217.5.71
+    internalTrafficPolicy: Cluster
+    ipFamilies:
+    - IPv4
+    ipFamilyPolicy: SingleStack
+    ports:
+    - port: 80
+      protocol: TCP
+      targetPort: 80
+    selector:
+      app: test-app
+    sessionAffinity: None
+    type: ClusterIP
+  status:
+    loadBalancer: {}

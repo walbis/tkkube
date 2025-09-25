@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 	
-	"shared-config/errors"
+	sharedErrors "shared-errors"
 )
 
 // Config holds the main backup configuration
@@ -119,7 +119,7 @@ func LoadConfig() (*Config, error) {
 
 	// Validate required fields
 	if err := config.Validate(); err != nil {
-		return nil, errors.NewConfigurationError("config", "load", "configuration validation failed", err)
+		return nil, sharedErrors.NewConfigurationError("config", "load", "configuration validation failed", err)
 	}
 
 	return config, nil
@@ -127,8 +127,8 @@ func LoadConfig() (*Config, error) {
 
 // Validate checks if the configuration is valid
 func (c *Config) Validate() error {
-	validator := errors.NewValidationHelper("config")
-	multiErr := errors.NewMultiError("config", "validation")
+	validator := sharedErrors.NewValidationHelper("config")
+	multiErr := sharedErrors.NewMultiError("config", "validation")
 	
 	// Required field validations
 	if err := validator.Required("MINIO_ENDPOINT", c.MinIOEndpoint); err != nil {

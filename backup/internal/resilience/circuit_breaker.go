@@ -3,8 +3,7 @@ package resilience
 import (
 	"sync"
 	"time"
-	
-	"shared-config/errors"
+	sharedErrors "shared-errors"
 )
 
 // CircuitState represents the state of a circuit breaker
@@ -157,8 +156,8 @@ type CircuitBreakerStats struct {
 
 // CircuitBreakerError is returned when a circuit breaker is open
 // NewCircuitBreakerError creates a circuit breaker error with context
-func NewCircuitBreakerError(name string, state CircuitState, failures int, lastFailTime time.Time) *errors.StandardError {
-	return errors.New(errors.ErrCodeCircuitBreaker, "resilience", "circuit_breaker", 
+func NewCircuitBreakerError(name string, state CircuitState, failures int, lastFailTime time.Time) *sharedErrors.StandardError {
+	return sharedErrors.New(sharedErrors.ErrCodeCircuitBreaker, "resilience", "circuit_breaker", 
 		"circuit breaker is open due to repeated failures").
 		WithContext("circuit_breaker_name", name).
 		WithContext("state", state.String()).
@@ -169,5 +168,5 @@ func NewCircuitBreakerError(name string, state CircuitState, failures int, lastF
 
 // IsCircuitBreakerError checks if an error is a circuit breaker error
 func IsCircuitBreakerError(err error) bool {
-	return errors.IsCode(err, errors.ErrCodeCircuitBreaker)
+	return sharedErrors.IsCode(err, sharedErrors.ErrCodeCircuitBreaker)
 }

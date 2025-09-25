@@ -1,0 +1,31 @@
+# Enhanced Kubernetes Backup - Service
+# Backup Date: 2025-09-25 18:28:38 +03
+# Resource Type: service
+# Schema Status: COMPLETE (apiVersion and kind included)
+# Restoration: Ready for kubectl apply
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"v1","kind":"Service","metadata":{"annotations":{},"name":"test-service","namespace":"demo-app"},"spec":{"ports":[{"port":80,"targetPort":80}],"selector":{"app":"test-app"}}}
+  creationTimestamp: "2025-09-25T11:10:08Z"
+  name: test-service
+  namespace: demo-app
+spec:
+  clusterIP: 10.217.5.71
+  clusterIPs:
+  - 10.217.5.71
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    app: test-app
+  sessionAffinity: None
+  type: ClusterIP

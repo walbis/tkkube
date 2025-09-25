@@ -1,0 +1,225 @@
+schema_version: "1.0.0"
+description: "Test multi-cluster configuration for unit tests"
+
+# Legacy single cluster configuration (used as fallback)
+storage:
+  type: minio
+  endpoint: "localhost:9000"
+  access_key: "minioadmin"
+  secret_key: "minioadmin123"
+  bucket: "cluster-backups"
+  use_ssl: false
+  region: "us-east-1"
+
+cluster:
+  name: "primary"
+  domain: "cluster.local"
+  type: "kubernetes"
+
+# Multi-cluster configuration
+multi_cluster:
+  enabled: true
+  mode: "sequential"
+  default_cluster: "test-primary"
+  
+  # Multiple cluster definitions
+  clusters:
+    # Primary test cluster
+    - name: "test-primary"
+      endpoint: "https://api.test-primary.k8s.local:6443"
+      token: "${PRIMARY_CLUSTER_TOKEN}"
+      storage:
+        type: "s3"
+        endpoint: "s3.us-east-1.amazonaws.com"
+        access_key: "test-access-key-1"
+        secret_key: "test-secret-key-1"
+        bucket: "${PRIMARY_CLUSTER_BUCKET}"
+        use_ssl: true
+        region: "us-east-1"
+    
+    # Secondary test cluster
+    - name: "test-secondary"
+      endpoint: "https://api.test-secondary.k8s.local:6443"
+      token: "${SECONDARY_CLUSTER_TOKEN}"
+      storage:
+        type: "s3"
+        endpoint: "s3.us-east-1.amazonaws.com"
+        access_key: "test-access-key-2"
+        secret_key: "test-secret-key-2"
+        bucket: "${SECONDARY_CLUSTER_BUCKET}"
+        use_ssl: true
+        region: "us-east-1"
+  
+  # Coordination settings
+  coordination:
+    timeout: 600
+    retry_attempts: 3
+    failure_threshold: 2
+    health_check_interval: "60s"
+  
+  # Scheduling and load balancing
+  scheduling:
+    strategy: "round_robin"
+    max_concurrent_clusters: 2
+    cluster_priorities:
+      - cluster: "test-primary"
+        priority: 1
+      - cluster: "test-secondary"
+        priority: 2
+
+# Backup configuration applies to all clusters
+backup:
+  filtering:
+    mode: "whitelist"
+    resources:
+      include:
+        - deployments
+        - services
+        - configmaps
+        - secrets
+        - persistentvolumeclaims
+        - statefulsets
+        - ingresses
+      exclude:
+        - events
+        - pods
+        - replicasets
+    namespaces:
+      exclude:
+        - kube-system
+        - kube-public
+        - kube-node-lease
+        - default
+        - openshift-*
+  
+  behavior:
+    batch_size: 25
+    validate_yaml: true
+    skip_invalid_resources: true
+    max_resource_size: "10Mi"
+  
+  cleanup:
+    enabled: true
+    retention_days: 14
+
+# GitOps configuration for multi-environment deployment
+gitops:
+  repository:
+    url: "git@github.com:company/k8s-gitops.git"
+    branch: "main"
+    auth:
+      method: "ssh"
+      ssh:
+        private_key_path: "~/.ssh/id_rsa"
+        passphrase: ""
+  
+  structure:
+    base_dir: "clusters"
+    environments:
+      - name: test-primary
+        cluster_url: "https://api.test-primary.k8s.local:6443"
+        auto_sync: false
+        replicas: 1
+      - name: test-secondary
+        cluster_url: "https://api.test-secondary.k8s.local:6443"
+        auto_sync: true
+        replicas: 1
+    
+    argocd:
+      enabled: true
+      namespace: "argocd"
+      project: "multi-cluster-backup"
+      sync_policy:
+        automated: false
+        prune: false
+        self_heal: false
+
+# Pipeline integration for multi-cluster coordination
+pipeline:
+  mode: "sequential"
+  
+  automation:
+    enabled: true
+    trigger_on_backup_complete: true
+    wait_for_backup: true
+    max_wait_time: 900
+    
+    trigger_methods:
+      - "webhook"
+      - "process"
+    
+    webhook_trigger:
+      enabled: true
+      server_host: "0.0.0.0"
+      server_port: 8080
+      endpoint_path: "/webhook/multi-cluster-backup-complete"
+  
+  notifications:
+    enabled: true
+    slack:
+      webhook_url: ""
+      channel: "#multi-cluster-backup"
+  
+  error_handling:
+    continue_on_error: true
+    max_retries: 2
+    retry_delay: "60s"
+
+# Observability for multi-cluster monitoring
+observability:
+  metrics:
+    enabled: true
+    port: 8080
+    path: "/metrics"
+  
+  logging:
+    level: "info"
+    format: "json"
+    file: ""
+  
+  tracing:
+    enabled: false
+    endpoint: ""
+    sample_rate: 0.1
+
+# Security configuration for multi-cluster
+security:
+  secrets:
+    provider: "env"
+  
+  network:
+    verify_ssl: true
+    ca_bundle: ""
+  
+  validation:
+    strict_mode: true
+    scan_for_secrets: true
+
+# Performance tuning for multi-cluster operations
+performance:
+  limits:
+    max_concurrent_operations: 5
+    memory_limit: "4Gi"
+    cpu_limit: "4"
+  
+  optimization:
+    batch_processing: true
+    compression: true
+    caching: true
+    cache_ttl: 600
+  
+  http:
+    max_idle_conns: 200
+    max_conns_per_host: 100
+    request_timeout: "120s"
+
+# Feature flags
+features:
+  experimental:
+    multi_cluster_support: true
+    incremental_backup: false
+    differential_sync: false
+  
+  preview:
+    ui_dashboard: false
+    rest_api: false

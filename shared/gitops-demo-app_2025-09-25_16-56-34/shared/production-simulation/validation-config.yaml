@@ -1,0 +1,199 @@
+# Validation and Monitoring Framework Configuration
+# Production-ready validation settings for GitOps Demo App
+
+cluster_name: "crc"
+namespace: "default"
+backup_location: "./backup-source"
+gitops_repo_path: "./"
+metrics_port: 8080
+health_check_interval: 30s
+
+# Validation toggles - enable/disable specific validation categories
+validations:
+  kubernetes_validation: true
+  gitops_validation: true
+  data_integrity: true
+  cross_platform: true
+  yaml_syntax: true
+  performance: true
+  security: true
+
+# Performance and health thresholds
+thresholds:
+  cpu_threshold: 80.0          # CPU usage percentage threshold
+  memory_threshold: 80.0       # Memory usage percentage threshold
+  response_time: 5s            # Maximum acceptable API response time
+  error_rate: 5.0             # Maximum acceptable error rate percentage
+  availability_min: 99.0       # Minimum availability percentage
+
+# Monitoring configuration
+monitoring:
+  collection_interval: 60s      # How often to collect metrics
+  retention_period: 24h        # How long to retain metrics
+  alert_thresholds:
+    critical_failures: 3       # Number of critical failures to trigger alert
+    high_latency_ms: 5000     # API latency threshold for alerts
+    pod_failure_rate: 10      # Pod failure rate percentage for alerts
+
+# GitOps tool detection and validation
+gitops_tools:
+  argocd:
+    enabled: true
+    namespace: "argocd"
+    health_endpoints:
+      - "argocd-server"
+      - "argocd-application-controller"
+      - "argocd-repo-server"
+  flux:
+    enabled: true
+    namespace: "flux-system"
+    health_endpoints:
+      - "source-controller"
+      - "kustomize-controller"
+      - "helm-controller"
+
+# Security validation settings
+security:
+  check_privileged_containers: true
+  check_service_accounts: true
+  check_network_policies: true
+  check_pod_security_standards: true
+  check_rbac_policies: true
+  security_score_threshold: 85
+
+# Data integrity validation
+data_integrity:
+  backup_validation: true
+  checksum_validation: true
+  required_backup_files:
+    - "deployments.yaml"
+    - "services.yaml" 
+    - "configmaps.yaml"
+    - "backup-summary.yaml"
+  data_consistency_threshold: 95
+
+# Performance testing configuration
+performance:
+  load_testing: false          # Disable load testing by default
+  api_benchmarking: true       # Enable API response time monitoring
+  resource_monitoring: true    # Enable resource usage monitoring
+  baseline_metrics:
+    cpu_normal: 30.0          # Normal CPU usage percentage
+    memory_normal: 40.0       # Normal memory usage percentage
+    api_latency_normal: 100   # Normal API latency in milliseconds
+
+# Cross-platform validation
+cross_platform:
+  test_environments:
+    - name: "development"
+      namespace: "dev"
+      expected_replicas: 1
+    - name: "staging" 
+      namespace: "staging"
+      expected_replicas: 2
+    - name: "production"
+      namespace: "prod"
+      expected_replicas: 3
+
+# YAML validation settings
+yaml_validation:
+  strict_mode: true           # Enforce strict YAML validation
+  schema_validation: true     # Validate against Kubernetes schemas
+  lint_rules: true           # Apply YAML linting rules
+  allowed_extensions:
+    - ".yaml"
+    - ".yml"
+
+# Reporting and alerting
+reporting:
+  generate_html_report: true
+  generate_json_report: true
+  generate_prometheus_metrics: true
+  report_retention_days: 30
+  email_notifications: false  # Disable email notifications for demo
+  slack_notifications: false  # Disable Slack notifications for demo
+
+# Logging configuration
+logging:
+  level: "info"               # Log level: debug, info, warn, error
+  format: "json"              # Log format: json, text
+  output: "stdout"            # Log output: stdout, file
+  file_path: "/tmp/validation-framework.log"
+
+# Advanced validation features
+advanced:
+  chaos_testing: false        # Disable chaos testing by default
+  disaster_recovery_testing: true
+  backup_restoration_testing: true
+  failover_testing: false
+  scaling_testing: false
+
+# Integration settings
+integrations:
+  prometheus:
+    enabled: true
+    push_gateway: ""          # Leave empty for pull-based metrics
+    job_name: "validation-framework"
+  grafana:
+    enabled: false            # Disable Grafana integration for demo
+    dashboard_url: ""
+  alertmanager:
+    enabled: false            # Disable AlertManager for demo
+    webhook_url: ""
+
+# Resource limits for the validation framework itself
+resource_limits:
+  max_memory: "512Mi"
+  max_cpu: "500m"
+  max_concurrent_validations: 10
+  max_metrics_retention: 1000
+
+# Custom validation rules
+custom_validations:
+  - name: "backup_freshness"
+    description: "Ensure backups are not older than 24 hours"
+    category: "data"
+    severity: "high"
+    enabled: true
+  - name: "gitops_sync_status"
+    description: "Validate GitOps applications are in sync"
+    category: "gitops"
+    severity: "critical"
+    enabled: true
+  - name: "certificate_expiry"
+    description: "Check for expiring TLS certificates"
+    category: "security"
+    severity: "medium"
+    enabled: false
+
+# Validation scheduling
+scheduling:
+  full_validation_cron: "0 */6 * * *"    # Every 6 hours
+  quick_health_check_cron: "*/5 * * * *"  # Every 5 minutes
+  security_scan_cron: "0 2 * * *"        # Daily at 2 AM
+  performance_test_cron: "0 1 * * 0"     # Weekly on Sunday at 1 AM
+
+# Environment-specific overrides
+environments:
+  development:
+    thresholds:
+      cpu_threshold: 90.0
+      memory_threshold: 90.0
+    validations:
+      security: false
+      performance: false
+  staging:
+    thresholds:
+      cpu_threshold: 85.0
+      memory_threshold: 85.0
+    validations:
+      security: true
+      performance: true
+  production:
+    thresholds:
+      cpu_threshold: 75.0
+      memory_threshold: 75.0
+    validations:
+      security: true
+      performance: true
+      chaos_testing: false

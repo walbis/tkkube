@@ -331,10 +331,131 @@ performance:
         max_retries: "${MONITORING_MAX_RETRIES:-1}"
         circuit_breaker_enabled: "${MONITORING_CIRCUIT_BREAKER_ENABLED:-false}"
 
+# Multi-Cluster Configuration
+multi_cluster:
+  enabled: "${MULTI_CLUSTER_ENABLED:-false}"
+  mode: "${MULTI_CLUSTER_MODE:-sequential}"  # sequential, parallel
+  default_cluster: "${DEFAULT_CLUSTER:-primary}"
+  
+  # Per-cluster authentication and configuration
+  clusters:
+    - name: "${PRIMARY_CLUSTER_NAME:-primary}"
+      endpoint: "${PRIMARY_CLUSTER_ENDPOINT}"
+      # Enhanced authentication configuration
+      auth:
+        # Authentication method: token, service_account, oidc, exec
+        method: "${PRIMARY_CLUSTER_AUTH_METHOD:-token}"
+        
+        # Token-based authentication
+        token:
+          value: "${PRIMARY_CLUSTER_TOKEN}"
+          type: "${PRIMARY_CLUSTER_TOKEN_TYPE:-bearer}"  # bearer, service_account
+          refresh_threshold: "${PRIMARY_TOKEN_REFRESH_THRESHOLD:-300}"  # seconds
+          
+        # Service account authentication (alternative to raw tokens)
+        service_account:
+          token_path: "${PRIMARY_SA_TOKEN_PATH:-/var/run/secrets/kubernetes.io/serviceaccount/token}"
+          ca_cert_path: "${PRIMARY_SA_CA_PATH:-/var/run/secrets/kubernetes.io/serviceaccount/ca.crt}"
+          
+        # OIDC authentication
+        oidc:
+          issuer_url: "${PRIMARY_OIDC_ISSUER}"
+          client_id: "${PRIMARY_OIDC_CLIENT_ID}"
+          client_secret: "${PRIMARY_OIDC_CLIENT_SECRET}"
+          id_token: "${PRIMARY_OIDC_ID_TOKEN}"
+          refresh_token: "${PRIMARY_OIDC_REFRESH_TOKEN}"
+          
+        # Exec authentication (for dynamic token retrieval)
+        exec:
+          command: "${PRIMARY_EXEC_COMMAND}"
+          args: "${PRIMARY_EXEC_ARGS}"
+          env: "${PRIMARY_EXEC_ENV}"
+          
+      # TLS configuration for secure cluster communication
+      tls:
+        insecure: "${PRIMARY_TLS_INSECURE:-false}"
+        ca_bundle: "${PRIMARY_CA_BUNDLE_PATH}"
+        ca_data: "${PRIMARY_CA_DATA}"  # base64 encoded CA certificate
+        cert_file: "${PRIMARY_CLIENT_CERT_PATH}"
+        key_file: "${PRIMARY_CLIENT_KEY_PATH}"
+        cert_data: "${PRIMARY_CLIENT_CERT_DATA}"  # base64 encoded
+        key_data: "${PRIMARY_CLIENT_KEY_DATA}"    # base64 encoded
+        server_name: "${PRIMARY_SERVER_NAME}"     # for SNI
+        
+      storage:
+        bucket: "${PRIMARY_CLUSTER_BUCKET:-${PRIMARY_CLUSTER_NAME}-backups}"
+        endpoint: "${PRIMARY_STORAGE_ENDPOINT:-${MINIO_ENDPOINT}}"
+        access_key: "${PRIMARY_STORAGE_ACCESS_KEY:-${MINIO_ACCESS_KEY}}"
+        secret_key: "${PRIMARY_STORAGE_SECRET_KEY:-${MINIO_SECRET_KEY}}"
+        use_ssl: "${PRIMARY_STORAGE_USE_SSL:-${MINIO_USE_SSL:-true}}"
+        region: "${PRIMARY_STORAGE_REGION:-${MINIO_REGION:-us-east-1}}"
+      
+    - name: "${SECONDARY_CLUSTER_NAME:-secondary}"
+      endpoint: "${SECONDARY_CLUSTER_ENDPOINT}"
+      # Enhanced authentication configuration
+      auth:
+        method: "${SECONDARY_CLUSTER_AUTH_METHOD:-token}"
+        
+        token:
+          value: "${SECONDARY_CLUSTER_TOKEN}"
+          type: "${SECONDARY_CLUSTER_TOKEN_TYPE:-bearer}"
+          refresh_threshold: "${SECONDARY_TOKEN_REFRESH_THRESHOLD:-300}"
+          
+        service_account:
+          token_path: "${SECONDARY_SA_TOKEN_PATH:-/var/run/secrets/kubernetes.io/serviceaccount/token}"
+          ca_cert_path: "${SECONDARY_SA_CA_PATH:-/var/run/secrets/kubernetes.io/serviceaccount/ca.crt}"
+          
+        oidc:
+          issuer_url: "${SECONDARY_OIDC_ISSUER}"
+          client_id: "${SECONDARY_OIDC_CLIENT_ID}"
+          client_secret: "${SECONDARY_OIDC_CLIENT_SECRET}"
+          id_token: "${SECONDARY_OIDC_ID_TOKEN}"
+          refresh_token: "${SECONDARY_OIDC_REFRESH_TOKEN}"
+          
+        exec:
+          command: "${SECONDARY_EXEC_COMMAND}"
+          args: "${SECONDARY_EXEC_ARGS}"
+          env: "${SECONDARY_EXEC_ENV}"
+          
+      tls:
+        insecure: "${SECONDARY_TLS_INSECURE:-false}"
+        ca_bundle: "${SECONDARY_CA_BUNDLE_PATH}"
+        ca_data: "${SECONDARY_CA_DATA}"
+        cert_file: "${SECONDARY_CLIENT_CERT_PATH}"
+        key_file: "${SECONDARY_CLIENT_KEY_PATH}"
+        cert_data: "${SECONDARY_CLIENT_CERT_DATA}"
+        key_data: "${SECONDARY_CLIENT_KEY_DATA}"
+        server_name: "${SECONDARY_SERVER_NAME}"
+        
+      storage:
+        bucket: "${SECONDARY_CLUSTER_BUCKET:-${SECONDARY_CLUSTER_NAME}-backups}"
+        endpoint: "${SECONDARY_STORAGE_ENDPOINT:-${MINIO_ENDPOINT}}"
+        access_key: "${SECONDARY_STORAGE_ACCESS_KEY:-${MINIO_ACCESS_KEY}}"
+        secret_key: "${SECONDARY_STORAGE_SECRET_KEY:-${MINIO_SECRET_KEY}}"
+        use_ssl: "${SECONDARY_STORAGE_USE_SSL:-${MINIO_USE_SSL:-true}}"
+        region: "${SECONDARY_STORAGE_REGION:-${MINIO_REGION:-us-east-1}}"
+  
+  # Multi-cluster coordination settings
+  coordination:
+    timeout: "${MULTI_CLUSTER_TIMEOUT:-300}"
+    retry_attempts: "${MULTI_CLUSTER_RETRIES:-3}"
+    failure_threshold: "${MULTI_CLUSTER_FAILURE_THRESHOLD:-2}"
+    health_check_interval: "${MULTI_CLUSTER_HEALTH_CHECK_INTERVAL:-30s}"
+    
+  # Load balancing and scheduling
+  scheduling:
+    strategy: "${MULTI_CLUSTER_SCHEDULING:-round_robin}"  # round_robin, least_loaded, priority
+    max_concurrent_clusters: "${MAX_CONCURRENT_CLUSTERS:-3}"
+    cluster_priorities:
+      - cluster: "${PRIMARY_CLUSTER_NAME:-primary}"
+        priority: "${PRIMARY_CLUSTER_PRIORITY:-1}"
+      - cluster: "${SECONDARY_CLUSTER_NAME:-secondary}"
+        priority: "${SECONDARY_CLUSTER_PRIORITY:-2}"
+
 # Feature Flags
 features:
   experimental:
-    multi_cluster_support: "${MULTI_CLUSTER:-false}"
+    multi_cluster_support: "${MULTI_CLUSTER:-false}"  # Legacy flag, use multi_cluster.enabled
     incremental_backup: "${INCREMENTAL_BACKUP:-false}"
     differential_sync: "${DIFFERENTIAL_SYNC:-false}"
     

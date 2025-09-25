@@ -270,7 +270,7 @@ func TestSharedConfig_GetBackupToolConfig(t *testing.T) {
 			Bucket:    "test-bucket",
 			UseSSL:    false,
 		},
-		Cluster: ClusterConfig{
+		Cluster: SingleClusterConfig{
 			Name:   "test-cluster",
 			Domain: "cluster.local",
 		},
@@ -317,7 +317,7 @@ func TestConfigLoader_SaveToFile(t *testing.T) {
 			Bucket:    "test-bucket",
 			UseSSL:    false,
 		},
-		Cluster: ClusterConfig{
+		Cluster: SingleClusterConfig{
 			Name:   "test-cluster",
 			Domain: "cluster.local",
 		},

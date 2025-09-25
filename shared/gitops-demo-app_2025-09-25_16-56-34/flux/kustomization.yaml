@@ -1,0 +1,18 @@
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+kind: Kustomization
+metadata:
+    labels:
+        app.kubernetes.io/component: backup-restore
+        app.kubernetes.io/managed-by: gitops-pipeline
+        app.kubernetes.io/name: demo-app
+        backup.source.cluster: crc-cluster
+    name: demo-app-restore
+    namespace: flux-system
+spec:
+    interval: 5m
+    path: ./gitops-demo-app_2025-09-25_16-56-34/overlays/development
+    prune: true
+    sourceRef:
+        kind: GitRepository
+        name: demo-app-restore-source
+    targetNamespace: demo-app

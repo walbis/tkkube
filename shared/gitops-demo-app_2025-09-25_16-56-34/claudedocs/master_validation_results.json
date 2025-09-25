@@ -1,0 +1,267 @@
+{
+  "overall_score": 61.4,
+  "critical_issues": [
+    "GitOps structure validation failed",
+    "Data integrity issues prevent deployment"
+  ],
+  "remediation_steps": [
+    {
+      "category": "GitOps Structure",
+      "priority": "HIGH",
+      "steps": [
+        "Run python3 validate_gitops.py to identify specific issues"
+      ]
+    },
+    {
+      "category": "Data Integrity",
+      "priority": "HIGH",
+      "steps": [
+        "Run python3 validate_data_integrity.py for detailed analysis",
+        "Add missing metadata sections to Kubernetes resources"
+      ]
+    }
+  ],
+  "validation_results": {
+    "yaml_syntax": {
+      "exit_code": 0,
+      "stdout": "Starting YAML syntax validation...\nFound 20 YAML files to validate\nValidating: argocd/application.yaml\nValidating: backup-source/backup-summary.yaml\nValidating: backup-source/configmaps.yaml\nValidating: backup-source/deployments.yaml\nValidating: backup-source/services.yaml\nValidating: base/backup-summary.yaml\nValidating: base/configmaps.yaml\nValidating: base/deployments.yaml\nValidating: base/kustomization.yaml\nValidating: base/services.yaml\nValidating: flux/gitrepository.yaml\nValidating: flux/kustomization.yaml\nValidating: overlays/development/kustomization.yaml\nValidating: overlays/development/replica-patch.yaml\nValidating: overlays/production/kustomization.yaml\nValidating: overlays/production/replica-patch.yaml\nValidating: overlays/staging/kustomization.yaml\nValidating: overlays/staging/replica-patch.yaml\nValidating: pipeline-summary.yaml\nValidating: test-deployment.yaml\n================================================================================\nYAML SYNTAX VALIDATION REPORT\n================================================================================\nTotal files scanned: 20\nValid files: 20\nInvalid files: 0\nFiles with warnings: 0\nSuccess rate: 100.0%\n\nFILE DETAILS:\n----------------------------------------\n\u2705 VALID argocd/application.yaml\n  Documents: 1\n  Size: 813 bytes\n  Encoding: utf-8\n\n\u2705 VALID backup-source/backup-summary.yaml\n  Documents: 1\n  Size: 381 bytes\n  Encoding: utf-8\n\n\u2705 VALID backup-source/configmaps.yaml\n  Documents: 1\n  Size: 12062 bytes\n  Encoding: utf-8\n\n\u2705 VALID backup-source/deployments.yaml\n  Documents: 1\n  Size: 5098 bytes\n  Encoding: utf-8\n\n\u2705 VALID backup-source/services.yaml\n  Documents: 1\n  Size: 1614 bytes\n  Encoding: utf-8\n\n\u2705 VALID base/backup-summary.yaml\n  Documents: 1\n  Size: 381 bytes\n  Encoding: utf-8\n\n\u2705 VALID base/configmaps.yaml\n  Documents: 1\n  Size: 265 bytes\n  Encoding: utf-8\n\n\u2705 VALID base/deployments.yaml\n  Documents: 1\n  Size: 6129 bytes\n  Encoding: utf-8\n\n\u2705 VALID base/kustomization.yaml\n  Documents: 1\n  Size: 255 bytes\n  Encoding: utf-8\n\n\u2705 VALID base/services.yaml\n  Documents: 1\n  Size: 1805 bytes\n  Encoding: utf-8\n\n\u2705 VALID flux/gitrepository.yaml\n  Documents: 1\n  Size: 444 bytes\n  Encoding: utf-8\n\n\u2705 VALID flux/kustomization.yaml\n  Documents: 1\n  Size: 553 bytes\n  Encoding: utf-8\n\n\u2705 VALID overlays/development/kustomization.yaml\n  Documents: 1\n  Size: 165 bytes\n  Encoding: utf-8\n\n\u2705 VALID overlays/development/replica-patch.yaml\n  Documents: 1\n  Size: 175 bytes\n  Encoding: utf-8\n\n\u2705 VALID overlays/production/kustomization.yaml\n  Documents: 1\n  Size: 164 bytes\n  Encoding: utf-8\n\n\u2705 VALID overlays/production/replica-patch.yaml\n  Documents: 1\n  Size: 174 bytes\n  Encoding: utf-8\n\n\u2705 VALID overlays/staging/kustomization.yaml\n  Documents: 1\n  Size: 161 bytes\n  Encoding: utf-8\n\n\u2705 VALID overlays/staging/replica-patch.yaml\n  Documents: 1\n  Size: 171 bytes\n  Encoding: utf-8\n\n\u2705 VALID pipeline-summary.yaml\n  Documents: 1\n  Size: 1065 bytes\n  Encoding: utf-8\n\n\u2705 VALID test-deployment.yaml\n  Documents: 3\n  Size: 1178 bytes\n  Encoding: utf-8\n\n\nValidation complete. Exit code: 0\n",
+      "stderr": "",
+      "success": true
+    },
+    "kubernetes": {
+      "exit_code": 0,
+      "stdout": "\u2705 kubectl is available\nStarting Kubernetes compliance validation...\nFound 0 Kubernetes manifest files\n================================================================================\nKUBERNETES COMPLIANCE VALIDATION REPORT\n================================================================================\nkubectl available: Yes\nTotal manifest files: 0\nValid manifests (dry-run): 0\n\nKUBERNETES MANIFEST FILES:\n----------------------------------------\n\n\nValidation complete. Exit code: 0\n",
+      "stderr": "",
+      "success": true
+    },
+    "gitops": {
+      "exit_code": 1,
+      "stdout": "\u2705 kustomize is available\nStarting GitOps structure validation...\nFound 5 kustomization files\nValidating kustomization: base/kustomization.yaml\nValidating kustomization: flux/kustomization.yaml\nValidating kustomization: overlays/development/kustomization.yaml\nValidating kustomization: overlays/production/kustomization.yaml\nValidating kustomization: overlays/staging/kustomization.yaml\nValidating ArgoCD applications...\nValidating Flux manifests...\nAnalyzing directory structure...\n================================================================================\nGITOPS STRUCTURE INTEGRITY VALIDATION REPORT\n================================================================================\nkustomize available: Yes\n\nDIRECTORY STRUCTURE ANALYSIS:\n----------------------------------------\nBase directory: \u2705 Present\nOverlays directory: \u2705 Present\nArgoCD directory: \u2705 Present\nFlux directory: \u2705 Present\nOverlay environments: production, staging, development\n\nKUSTOMIZATION FILES VALIDATION:\n----------------------------------------\nTotal kustomization files: 5\n\n\ud83d\udcc4 base/kustomization.yaml\n  \u2705 VALID Resource references\n  Resources: 3 found\n  \u26a0\ufe0f  Consider setting a namespace for resources\n  \u274c FAILED Kustomize build\n    \u274c Build failed: Error: accumulating resources: accumulation err='accumulating resources from 'configmaps.yaml': missing metadata.name in object {{v1 ConfigMap} {{ } map[] map[]}}': must build at directory: '/home/tkkaray/inceleme/shared/gitops-demo-app_2025-09-25_16-56-34/base/configmaps.yaml': file is not directory\n\n\n\ud83d\udcc4 flux/kustomization.yaml\n  \u2705 VALID Resource references\n  \u274c FAILED Kustomize build\n    \u274c Build failed: Error: invalid Kustomization: json: unknown field \"spec\"\n\n\n\ud83d\udcc4 overlays/development/kustomization.yaml\n  \u2705 VALID Resource references\n  Resources: 1 found\n  \u26a0\ufe0f  Consider setting a namespace for resources\n  \u274c FAILED Kustomize build\n    \u274c Build failed: Error: accumulating resources: accumulation err='accumulating resources from '../../base': '/home/tkkaray/inceleme/shared/gitops-demo-app_2025-09-25_16-56-34/base' must resolve to a file': recursed accumulation of path '/home/tkkaray/inceleme/shared/gitops-demo-app_2025-09-25_16-56-34/base': accumulating resources: accumulation err='accumulating resources from 'configmaps.yaml': missing metadata.name in object {{v1 ConfigMap} {{ } map[] map[]}}': must build at directory: '/home/tkkaray/inceleme/shared/gitops-demo-app_2025-09-25_16-56-34/base/configmaps.yaml': file is not directory\n\n\n\ud83d\udcc4 overlays/production/kustomization.yaml\n  \u2705 VALID Resource references\n  Resources: 1 found\n  \u26a0\ufe0f  Consider setting a namespace for resources\n  \u274c FAILED Kustomize build\n    \u274c Build failed: Error: accumulating resources: accumulation err='accumulating resources from '../../base': '/home/tkkaray/inceleme/shared/gitops-demo-app_2025-09-25_16-56-34/base' must resolve to a file': recursed accumulation of path '/home/tkkaray/inceleme/shared/gitops-demo-app_2025-09-25_16-56-34/base': accumulating resources: accumulation err='accumulating resources from 'configmaps.yaml': missing metadata.name in object {{v1 ConfigMap} {{ } map[] map[]}}': must build at directory: '/home/tkkaray/inceleme/shared/gitops-demo-app_2025-09-25_16-56-34/base/configmaps.yaml': file is not directory\n\n\n\ud83d\udcc4 overlays/staging/kustomization.yaml\n  \u2705 VALID Resource references\n  Resources: 1 found\n  \u26a0\ufe0f  Consider setting a namespace for resources\n  \u274c FAILED Kustomize build\n    \u274c Build failed: Error: accumulating resources: accumulation err='accumulating resources from '../../base': '/home/tkkaray/inceleme/shared/gitops-demo-app_2025-09-25_16-56-34/base' must resolve to a file': recursed accumulation of path '/home/tkkaray/inceleme/shared/gitops-demo-app_2025-09-25_16-56-34/base': accumulating resources: accumulation err='accumulating resources from 'configmaps.yaml': missing metadata.name in object {{v1 ConfigMap} {{ } map[] map[]}}': must build at directory: '/home/tkkaray/inceleme/shared/gitops-demo-app_2025-09-25_16-56-34/base/configmaps.yaml': file is not directory\n\n\nARGOCD APPLICATIONS:\n----------------------------------------\nTotal applications: 1\n\u2705 VALID demo-app-restore (argocd/application.yaml)\n  Destination: https://kubernetes.default.svc/demo-app\n  \u26a0\ufe0f  Source path does not exist locally: gitops-demo-app_2025-09-25_16-56-34/overlays/development\n\nFLUX MANIFESTS:\n----------------------------------------\nTotal Flux manifests: 2\n\u2705 VALID GitRepository/demo-app-restore-source (flux/gitrepository.yaml)\n\u2705 VALID Kustomization/demo-app-restore (flux/kustomization.yaml)\n\nALL ERRORS:\n----------------------------------------\n\u274c base: Build failed: Error: accumulating resources: accumulation err='accumulating resources from 'configmaps.yaml': missing metadata.name in object {{v1 ConfigMap} {{ } map[] map[]}}': must build at directory: '/home/tkkaray/inceleme/shared/gitops-demo-app_2025-09-25_16-56-34/base/configmaps.yaml': file is not directory\n\n\u274c flux: Build failed: Error: invalid Kustomization: json: unknown field \"spec\"\n\n\u274c overlays/development: Build failed: Error: accumulating resources: accumulation err='accumulating resources from '../../base': '/home/tkkaray/inceleme/shared/gitops-demo-app_2025-09-25_16-56-34/base' must resolve to a file': recursed accumulation of path '/home/tkkaray/inceleme/shared/gitops-demo-app_2025-09-25_16-56-34/base': accumulating resources: accumulation err='accumulating resources from 'configmaps.yaml': missing metadata.name in object {{v1 ConfigMap} {{ } map[] map[]}}': must build at directory: '/home/tkkaray/inceleme/shared/gitops-demo-app_2025-09-25_16-56-34/base/configmaps.yaml': file is not directory\n\n\u274c overlays/production: Build failed: Error: accumulating resources: accumulation err='accumulating resources from '../../base': '/home/tkkaray/inceleme/shared/gitops-demo-app_2025-09-25_16-56-34/base' must resolve to a file': recursed accumulation of path '/home/tkkaray/inceleme/shared/gitops-demo-app_2025-09-25_16-56-34/base': accumulating resources: accumulation err='accumulating resources from 'configmaps.yaml': missing metadata.name in object {{v1 ConfigMap} {{ } map[] map[]}}': must build at directory: '/home/tkkaray/inceleme/shared/gitops-demo-app_2025-09-25_16-56-34/base/configmaps.yaml': file is not directory\n\n\u274c overlays/staging: Build failed: Error: accumulating resources: accumulation err='accumulating resources from '../../base': '/home/tkkaray/inceleme/shared/gitops-demo-app_2025-09-25_16-56-34/base' must resolve to a file': recursed accumulation of path '/home/tkkaray/inceleme/shared/gitops-demo-app_2025-09-25_16-56-34/base': accumulating resources: accumulation err='accumulating resources from 'configmaps.yaml': missing metadata.name in object {{v1 ConfigMap} {{ } map[] map[]}}': must build at directory: '/home/tkkaray/inceleme/shared/gitops-demo-app_2025-09-25_16-56-34/base/configmaps.yaml': file is not directory\n\n\n\nValidation complete. Exit code: 1\n",
+      "stderr": "",
+      "success": false
+    },
+    "data_integrity": {
+      "exit_code": 1,
+      "stdout": "Starting data integrity validation...\nLoading backup source resources...\nLoading GitOps base resources...\nComparing resource structures...\nChecking structural issues...\nAnalyzing transformations...\nCalculating quality metrics...\n================================================================================\nDATA INTEGRITY VALIDATION REPORT\n================================================================================\nFILE SUMMARY:\n----------------------------------------\nBackup source files: 4\nGitOps base files: 5\n\nRESOURCE COMPARISON:\n----------------------------------------\nResource Counts:\n  \u26a0\ufe0f ConfigMap: 3 \u2192 1\n  \u2705 Deployment: 1 \u2192 1\n  \u26a0\ufe0f Kustomization: 0 \u2192 1\n  \u2705 Service: 1 \u2192 1\n\n\ud83d\udca1 Extra resource kinds in target: Kustomization\n\nDetailed Resource Analysis:\n  \u2705 Service common resources: 1\n  \u274c ConfigMap missing in target: 3 resources\n  \ud83d\udca1 ConfigMap extra in target: 1 resources\n  \ud83d\udca1 Kustomization extra in target: 1 resources\n  \u2705 Deployment common resources: 1\n\nSTRUCTURAL ISSUES:\n----------------------------------------\nTarget (GitOps base) issues:\n  \u274c configmaps.yaml: Missing metadata section\n\nTRANSFORMATION ANALYSIS:\n----------------------------------------\n\nQUALITY METRICS:\n----------------------------------------\nResource preservation rate: 80.0%\nStructural quality score: 0.0%\nData integrity score: 32.0%\nTransformation quality score: 100.0%\nDeployment readiness: \u274c NOT READY\n\n\nValidation complete. Exit code: 1\n",
+      "stderr": "",
+      "success": false,
+      "detailed_results": {
+        "backup_source_files": [
+          "/home/tkkaray/inceleme/shared/gitops-demo-app_2025-09-25_16-56-34/claudedocs/../backup-source/configmaps.yaml",
+          "/home/tkkaray/inceleme/shared/gitops-demo-app_2025-09-25_16-56-34/claudedocs/../backup-source/services.yaml",
+          "/home/tkkaray/inceleme/shared/gitops-demo-app_2025-09-25_16-56-34/claudedocs/../backup-source/deployments.yaml",
+          "/home/tkkaray/inceleme/shared/gitops-demo-app_2025-09-25_16-56-34/claudedocs/../backup-source/backup-summary.yaml"
+        ],
+        "gitops_base_files": [
+          "/home/tkkaray/inceleme/shared/gitops-demo-app_2025-09-25_16-56-34/claudedocs/../base/configmaps.yaml",
+          "/home/tkkaray/inceleme/shared/gitops-demo-app_2025-09-25_16-56-34/claudedocs/../base/services.yaml",
+          "/home/tkkaray/inceleme/shared/gitops-demo-app_2025-09-25_16-56-34/claudedocs/../base/kustomization.yaml",
+          "/home/tkkaray/inceleme/shared/gitops-demo-app_2025-09-25_16-56-34/claudedocs/../base/deployments.yaml",
+          "/home/tkkaray/inceleme/shared/gitops-demo-app_2025-09-25_16-56-34/claudedocs/../base/backup-summary.yaml"
+        ],
+        "resource_comparison": {
+          "resource_counts": {
+            "source": {
+              "ConfigMap": 3,
+              "Service": 1,
+              "Deployment": 1
+            },
+            "target": {
+              "ConfigMap": 1,
+              "Service": 1,
+              "Kustomization": 1,
+              "Deployment": 1
+            }
+          },
+          "missing_kinds": [],
+          "extra_kinds": [
+            "Kustomization"
+          ],
+          "resource_details": {
+            "Service": {
+              "source_count": 1,
+              "target_count": 1,
+              "missing_in_target": [],
+              "extra_in_target": [],
+              "common_resources": [
+                [
+                  "Service",
+                  "demo-app",
+                  "test-service"
+                ]
+              ]
+            },
+            "ConfigMap": {
+              "source_count": 3,
+              "target_count": 1,
+              "missing_in_target": [
+                [
+                  "ConfigMap",
+                  "demo-app",
+                  "test-config"
+                ],
+                [
+                  "ConfigMap",
+                  "demo-app",
+                  "openshift-service-ca.crt"
+                ],
+                [
+                  "ConfigMap",
+                  "demo-app",
+                  "kube-root-ca.crt"
+                ]
+              ],
+              "extra_in_target": [
+                [
+                  "ConfigMap",
+                  "default",
+                  "unnamed"
+                ]
+              ],
+              "common_resources": []
+            },
+            "Kustomization": {
+              "source_count": 0,
+              "target_count": 1,
+              "missing_in_target": [],
+              "extra_in_target": [
+                [
+                  "Kustomization",
+                  "demo-app",
+                  "demo-app-restore-base"
+                ]
+              ],
+              "common_resources": []
+            },
+            "Deployment": {
+              "source_count": 1,
+              "target_count": 1,
+              "missing_in_target": [],
+              "extra_in_target": [],
+              "common_resources": [
+                [
+                  "Deployment",
+                  "demo-app",
+                  "test-app"
+                ]
+              ]
+            }
+          }
+        },
+        "missing_resources": [],
+        "extra_resources": [],
+        "data_mismatches": [],
+        "structure_issues": [
+          {
+            "type": "missing_metadata",
+            "location": "target",
+            "file": "configmaps.yaml",
+            "resource": "ConfigMap/unknown",
+            "description": "Missing metadata section"
+          }
+        ],
+        "transformation_analysis": {
+          "field_removals": {},
+          "field_modifications": {},
+          "common_transformations": [],
+          "quality_improvements": [],
+          "potential_issues": []
+        },
+        "quality_metrics": {
+          "completeness": {
+            "resource_preservation_rate": 80.0,
+            "data_integrity_rate": 0.0,
+            "structural_quality_score": 0.0
+          },
+          "transformation": {
+            "system_field_cleanup_rate": 0.0,
+            "quality_improvement_count": 0,
+            "potential_issue_count": 0
+          },
+          "overall": {
+            "data_integrity_score": 32.0,
+            "transformation_quality_score": 100.0,
+            "readiness_for_deployment": "not_ready"
+          }
+        },
+        "errors": [],
+        "warnings": []
+      }
+    },
+    "cross_platform": {
+      "exit_code": 0,
+      "stdout": "Starting cross-platform compatibility validation...\nAnalyzing API versions...\nTesting ArgoCD compatibility...\nTesting Flux compatibility...\nTesting manual deployment compatibility...\n================================================================================\nCROSS-PLATFORM COMPATIBILITY VALIDATION REPORT\n================================================================================\nTOOL AVAILABILITY:\n----------------------------------------\nkubectl: \u2705 Available\n  Version: Client Version: v1.33.3\nkustomize: \u2705 Available\n  Version: v5.7.1\nargocd: \u274c Not Available\n  Error: [Errno 2] No such file or directory: 'argocd'\nflux: \u274c Not Available\n  Error: [Errno 2] No such file or directory: 'flux'\n\nAPI VERSION ANALYSIS:\n----------------------------------------\nAPI versions in use: 0\n\n\u2705 No deprecated APIs found\n\nCOMPATIBILITY MATRIX:\n----------------------------------------\nPlatform     Pass   Warn   Fail   Skip   Error \n-----------------------------------------------\nargocd       0      0      0      0      0     \nflux         0      0      0      0      0     \nmanual       0      0      0      0      0     \n\nPLATFORM DEPLOYMENT RECOMMENDATIONS:\n----------------------------------------\n\u2705 ArgoCD: Ready for deployment\n\u2705 Flux: Ready for deployment\n\u2705 Manual (kubectl): Ready for deployment\n\nValidation complete. Exit code: 0\n",
+      "stderr": "",
+      "success": true,
+      "detailed_results": {
+        "tool_versions": {
+          "kubectl": {
+            "available": true,
+            "version": "Client Version: v1.33.3\nKustomize Version: v5.6.0",
+            "error": null
+          },
+          "kustomize": {
+            "available": true,
+            "version": "v5.7.1",
+            "error": null
+          },
+          "argocd": {
+            "available": false,
+            "version": null,
+            "error": "[Errno 2] No such file or directory: 'argocd'"
+          },
+          "flux": {
+            "available": false,
+            "version": null,
+            "error": "[Errno 2] No such file or directory: 'flux'"
+          }
+        },
+        "kubernetes_versions": [
+          {
+            "type": "cluster",
+            "version": "Client Version: v1.33.3\nKustomize Version: v5.6.0\nServer Version: v1.32.5\n",
+            "accessible": true
+          }
+        ],
+        "compatibility_matrix": {
+          "argocd": {
+            "pass": 0,
+            "warning": 0,
+            "fail": 0,
+            "skip": 0,
+            "error": 0
+          },
+          "flux": {
+            "pass": 0,
+            "warning": 0,
+            "fail": 0,
+            "skip": 0,
+            "error": 0
+          },
+          "manual": {
+            "pass": 0,
+            "warning": 0,
+            "fail": 0,
+            "skip": 0,
+            "error": 0
+          }
+        },
+        "portability_issues": [],
+        "platform_specific_tests": {
+          "argocd": [],
+          "flux": [],
+          "manual": []
+        },
+        "api_version_analysis": {
+          "api_versions_used": {},
+          "deprecated_apis": [],
+          "removed_apis": [],
+          "compatibility_issues": []
+        },
+        "deprecation_warnings": [],
+        "errors": [],
+        "warnings": []
+      }
+    }
+  }
+}

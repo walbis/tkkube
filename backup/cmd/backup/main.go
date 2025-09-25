@@ -30,9 +30,7 @@ func main() {
 	var (
 		showVersion  = flag.Bool("version", false, "Show version and exit")
 		healthCheck  = flag.Bool("health-check", false, "Run health check and exit")
-		configPath   = flag.String("config", "", "Path to configuration file")
 		dryRun       = flag.Bool("dry-run", false, "Perform a dry run without making changes")
-		logLevel     = flag.String("log-level", "info", "Log level (debug, info, warning, error)")
 	)
 	flag.Parse()
 

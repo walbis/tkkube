@@ -1,0 +1,189 @@
+{
+  "total_files": 20,
+  "valid_files": 20,
+  "invalid_files": 0,
+  "errors": [],
+  "warnings": [],
+  "file_details": {
+    "argocd/application.yaml": {
+      "file": "argocd/application.yaml",
+      "valid": true,
+      "errors": [],
+      "warnings": [],
+      "documents": 1,
+      "size_bytes": 813,
+      "encoding": "utf-8"
+    },
+    "backup-source/backup-summary.yaml": {
+      "file": "backup-source/backup-summary.yaml",
+      "valid": true,
+      "errors": [],
+      "warnings": [],
+      "documents": 1,
+      "size_bytes": 381,
+      "encoding": "utf-8"
+    },
+    "backup-source/configmaps.yaml": {
+      "file": "backup-source/configmaps.yaml",
+      "valid": true,
+      "errors": [],
+      "warnings": [],
+      "documents": 1,
+      "size_bytes": 12062,
+      "encoding": "utf-8"
+    },
+    "backup-source/deployments.yaml": {
+      "file": "backup-source/deployments.yaml",
+      "valid": true,
+      "errors": [],
+      "warnings": [],
+      "documents": 1,
+      "size_bytes": 5098,
+      "encoding": "utf-8"
+    },
+    "backup-source/services.yaml": {
+      "file": "backup-source/services.yaml",
+      "valid": true,
+      "errors": [],
+      "warnings": [],
+      "documents": 1,
+      "size_bytes": 1614,
+      "encoding": "utf-8"
+    },
+    "base/backup-summary.yaml": {
+      "file": "base/backup-summary.yaml",
+      "valid": true,
+      "errors": [],
+      "warnings": [],
+      "documents": 1,
+      "size_bytes": 381,
+      "encoding": "utf-8"
+    },
+    "base/configmaps.yaml": {
+      "file": "base/configmaps.yaml",
+      "valid": true,
+      "errors": [],
+      "warnings": [],
+      "documents": 1,
+      "size_bytes": 265,
+      "encoding": "utf-8"
+    },
+    "base/deployments.yaml": {
+      "file": "base/deployments.yaml",
+      "valid": true,
+      "errors": [],
+      "warnings": [],
+      "documents": 1,
+      "size_bytes": 6129,
+      "encoding": "utf-8"
+    },
+    "base/kustomization.yaml": {
+      "file": "base/kustomization.yaml",
+      "valid": true,
+      "errors": [],
+      "warnings": [],
+      "documents": 1,
+      "size_bytes": 255,
+      "encoding": "utf-8"
+    },
+    "base/services.yaml": {
+      "file": "base/services.yaml",
+      "valid": true,
+      "errors": [],
+      "warnings": [],
+      "documents": 1,
+      "size_bytes": 1805,
+      "encoding": "utf-8"
+    },
+    "flux/gitrepository.yaml": {
+      "file": "flux/gitrepository.yaml",
+      "valid": true,
+      "errors": [],
+      "warnings": [],
+      "documents": 1,
+      "size_bytes": 444,
+      "encoding": "utf-8"
+    },
+    "flux/kustomization.yaml": {
+      "file": "flux/kustomization.yaml",
+      "valid": true,
+      "errors": [],
+      "warnings": [],
+      "documents": 1,
+      "size_bytes": 553,
+      "encoding": "utf-8"
+    },
+    "overlays/development/kustomization.yaml": {
+      "file": "overlays/development/kustomization.yaml",
+      "valid": true,
+      "errors": [],
+      "warnings": [],
+      "documents": 1,
+      "size_bytes": 165,
+      "encoding": "utf-8"
+    },
+    "overlays/development/replica-patch.yaml": {
+      "file": "overlays/development/replica-patch.yaml",
+      "valid": true,
+      "errors": [],
+      "warnings": [],
+      "documents": 1,
+      "size_bytes": 175,
+      "encoding": "utf-8"
+    },
+    "overlays/production/kustomization.yaml": {
+      "file": "overlays/production/kustomization.yaml",
+      "valid": true,
+      "errors": [],
+      "warnings": [],
+      "documents": 1,
+      "size_bytes": 164,
+      "encoding": "utf-8"
+    },
+    "overlays/production/replica-patch.yaml": {
+      "file": "overlays/production/replica-patch.yaml",
+      "valid": true,
+      "errors": [],
+      "warnings": [],
+      "documents": 1,
+      "size_bytes": 174,
+      "encoding": "utf-8"
+    },
+    "overlays/staging/kustomization.yaml": {
+      "file": "overlays/staging/kustomization.yaml",
+      "valid": true,
+      "errors": [],
+      "warnings": [],
+      "documents": 1,
+      "size_bytes": 161,
+      "encoding": "utf-8"
+    },
+    "overlays/staging/replica-patch.yaml": {
+      "file": "overlays/staging/replica-patch.yaml",
+      "valid": true,
+      "errors": [],
+      "warnings": [],
+      "documents": 1,
+      "size_bytes": 171,
+      "encoding": "utf-8"
+    },
+    "pipeline-summary.yaml": {
+      "file": "pipeline-summary.yaml",
+      "valid": true,
+      "errors": [],
+      "warnings": [],
+      "documents": 1,
+      "size_bytes": 1065,
+      "encoding": "utf-8"
+    },
+    "test-deployment.yaml": {
+      "file": "test-deployment.yaml",
+      "valid": true,
+      "errors": [],
+      "warnings": [],
+      "documents": 3,
+      "size_bytes": 1178,
+      "encoding": "utf-8"
+    }
+  }
+}

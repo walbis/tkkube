@@ -1,0 +1,156 @@
+# Production-Ready Test Deployment
+# Generated: 2025-09-25T18:55:00+03:00
+# Environment: Production
+# Security: Hardened
+# Resources: Limited
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: demo-app-production
+  namespace: demo-app
+  labels:
+    app.kubernetes.io/name: demo-app
+    app.kubernetes.io/component: web
+    app.kubernetes.io/part-of: demo-app
+    app.kubernetes.io/managed-by: backup-restore
+    app.kubernetes.io/version: "1.0.0"
+    environment: production
+    tier: application
+  annotations:
+    deployment.kubernetes.io/revision: "1"
+    backup.restored.from: "crc-cluster"
+    security.hardened: "true"
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: demo-app
+      app.kubernetes.io/component: web
+      environment: production
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: demo-app
+        app.kubernetes.io/component: web
+        app.kubernetes.io/part-of: demo-app
+        environment: production
+        tier: application
+      annotations:
+        security.hardened: "true"
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 3000
+        fsGroup: 3000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: web
+        image: nginx:1.24-alpine
+        ports:
+        - containerPort: 8080
+          protocol: TCP
+          name: http
+        env:
+        - name: ENVIRONMENT
+          value: "production"
+        - name: LOG_LEVEL
+          value: "info"
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        - name: var-run
+          mountPath: /var/run
+        - name: var-cache-nginx
+          mountPath: /var/cache/nginx
+        - name: config
+          mountPath: /etc/nginx/conf.d
+          readOnly: true
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          runAsGroup: 3000
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+            add:
+            - NET_BIND_SERVICE
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+      volumes:
+      - name: tmp
+        emptyDir: {}
+      - name: var-run
+        emptyDir: {}
+      - name: var-cache-nginx
+        emptyDir: {}
+      - name: config
+        configMap:
+          name: demo-app-production-config
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: demo-app-production-config
+  namespace: demo-app
+  labels:
+    app.kubernetes.io/name: demo-app
+    app.kubernetes.io/component: configuration
+    environment: production
+data:
+  default.conf: |
+    server {
+        listen 8080;
+        server_name localhost;
+        
+        # Security headers
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-XSS-Protection "1; mode=block" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        
+        location / {
+            root /usr/share/nginx/html;
+            index index.html index.htm;
+        }
+        
+        # Health check endpoint
+        location /health {
+            access_log off;
+            return 200 "healthy\n";
+            add_header Content-Type text/plain;
+        }
+    }
+  app.properties: |
+    environment=production
+    debug=false
+    log.level=info
+    backup.enabled=false
+    security.hardened=true

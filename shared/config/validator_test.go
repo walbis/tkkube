@@ -148,12 +148,12 @@ func TestConfigValidator_ValidateStorage(t *testing.T) {
 func TestConfigValidator_ValidateCluster(t *testing.T) {
 	tests := []struct {
 		name        string
-		cluster     ClusterConfig
+		cluster     SingleClusterConfig
 		expectError bool
 	}{
 		{
 			name: "Valid Kubernetes cluster",
-			cluster: ClusterConfig{
+			cluster: SingleClusterConfig{
 				Name:   "test-cluster",
 				Domain: "cluster.local",
 				Type:   "kubernetes",
@@ -162,7 +162,7 @@ func TestConfigValidator_ValidateCluster(t *testing.T) {
 		},
 		{
 			name: "Valid OpenShift cluster",
-			cluster: ClusterConfig{
+			cluster: SingleClusterConfig{
 				Name:   "openshift-cluster",
 				Domain: "cluster.local",
 				Type:   "openshift",
@@ -175,7 +175,7 @@ func TestConfigValidator_ValidateCluster(t *testing.T) {
 		},
 		{
 			name: "Missing cluster name",
-			cluster: ClusterConfig{
+			cluster: SingleClusterConfig{
 				Domain: "cluster.local",
 				Type:   "kubernetes",
 			},
@@ -183,7 +183,7 @@ func TestConfigValidator_ValidateCluster(t *testing.T) {
 		},
 		{
 			name: "Invalid cluster type",
-			cluster: ClusterConfig{
+			cluster: SingleClusterConfig{
 				Name:   "test-cluster",
 				Domain: "cluster.local",
 				Type:   "invalid",
@@ -192,7 +192,7 @@ func TestConfigValidator_ValidateCluster(t *testing.T) {
 		},
 		{
 			name: "Invalid domain",
-			cluster: ClusterConfig{
+			cluster: SingleClusterConfig{
 				Name:   "test-cluster",
 				Domain: "invalid..domain",
 				Type:   "kubernetes",
@@ -392,7 +392,7 @@ func TestValidateConfig_CompleteConfiguration(t *testing.T) {
 				RetryDelay: 5 * time.Second,
 			},
 		},
-		Cluster: ClusterConfig{
+		Cluster: SingleClusterConfig{
 			Name:   "test-cluster",
 			Domain: "cluster.local",
 			Type:   "kubernetes",
@@ -471,7 +471,7 @@ func TestValidateConfig_InvalidConfiguration(t *testing.T) {
 		Storage: StorageConfig{
 			Type: "invalid-type",
 		},
-		Cluster: ClusterConfig{
+		Cluster: SingleClusterConfig{
 			Type: "invalid-type",
 		},
 	}

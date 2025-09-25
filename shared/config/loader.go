@@ -15,7 +15,8 @@ type SharedConfig struct {
 	SchemaVersion string                  `yaml:"schema_version"`
 	Description   string                  `yaml:"description"`
 	Storage       StorageConfig           `yaml:"storage"`
-	Cluster       ClusterConfig           `yaml:"cluster"`
+	Cluster       SingleClusterConfig     `yaml:"cluster"`
+	MultiCluster  MultiClusterConfig      `yaml:"multi_cluster"`
 	Backup        BackupConfig            `yaml:"backup"`
 	GitOps        GitOpsConfig            `yaml:"gitops"`
 	Pipeline      PipelineConfig          `yaml:"pipeline"`
@@ -50,7 +51,7 @@ type ConnectionConfig struct {
 }
 
 // ClusterConfig defines cluster-specific settings
-type ClusterConfig struct {
+type SingleClusterConfig struct {
 	Name      string            `yaml:"name"`
 	Domain    string            `yaml:"domain"`
 	Type      string            `yaml:"type"`
@@ -360,6 +361,99 @@ type OptimizationConfig struct {
 	CacheTTL        int  `yaml:"cache_ttl"`
 }
 
+// MultiClusterConfig defines multi-cluster support configuration
+type MultiClusterConfig struct {
+	Enabled        bool                           `yaml:"enabled"`
+	Mode           string                         `yaml:"mode"`
+	DefaultCluster string                         `yaml:"default_cluster"`
+	Clusters       []MultiClusterClusterConfig   `yaml:"clusters"`
+	Coordination   CoordinationConfig            `yaml:"coordination"`
+	Scheduling     SchedulingConfig              `yaml:"scheduling"`
+}
+
+// MultiClusterClusterConfig defines individual cluster configuration for multi-cluster
+type MultiClusterClusterConfig struct {
+	Name     string                    `yaml:"name"`
+	Endpoint string                    `yaml:"endpoint"`
+	Auth     ClusterAuthConfig         `yaml:"auth"`
+	TLS      ClusterTLSConfig          `yaml:"tls"`
+	Storage  StorageConfig             `yaml:"storage"`
+	
+	// Legacy support - deprecated in favor of Auth
+	Token    string                    `yaml:"token,omitempty"`
+}
+
+// ClusterAuthConfig defines authentication configuration for a cluster
+type ClusterAuthConfig struct {
+	Method         string                 `yaml:"method"`           // token, service_account, oidc, exec
+	Token          TokenAuthConfig        `yaml:"token"`
+	ServiceAccount ServiceAccountConfig   `yaml:"service_account"`
+	OIDC           OIDCConfig            `yaml:"oidc"`
+	Exec           ExecConfig            `yaml:"exec"`
+}
+
+// TokenAuthConfig defines token-based authentication
+type TokenAuthConfig struct {
+	Value            string `yaml:"value"`
+	Type             string `yaml:"type"`              // bearer, service_account
+	RefreshThreshold int    `yaml:"refresh_threshold"` // seconds before expiry to refresh
+}
+
+// ServiceAccountConfig defines service account authentication
+type ServiceAccountConfig struct {
+	TokenPath  string `yaml:"token_path"`
+	CACertPath string `yaml:"ca_cert_path"`
+}
+
+// OIDCConfig defines OIDC authentication
+type OIDCConfig struct {
+	IssuerURL    string `yaml:"issuer_url"`
+	ClientID     string `yaml:"client_id"`
+	ClientSecret string `yaml:"client_secret"`
+	IDToken      string `yaml:"id_token"`
+	RefreshToken string `yaml:"refresh_token"`
+}
+
+// ExecConfig defines exec-based authentication (for dynamic token retrieval)
+type ExecConfig struct {
+	Command string   `yaml:"command"`
+	Args    []string `yaml:"args"`
+	Env     []string `yaml:"env"`
+}
+
+// ClusterTLSConfig defines TLS configuration for cluster connections
+type ClusterTLSConfig struct {
+	Insecure   bool   `yaml:"insecure"`
+	CABundle   string `yaml:"ca_bundle"`    // path to CA bundle file
+	CAData     string `yaml:"ca_data"`      // base64 encoded CA certificate data
+	CertFile   string `yaml:"cert_file"`    // path to client certificate file
+	KeyFile    string `yaml:"key_file"`     // path to client key file
+	CertData   string `yaml:"cert_data"`    // base64 encoded client certificate data
+	KeyData    string `yaml:"key_data"`     // base64 encoded client key data
+	ServerName string `yaml:"server_name"`  // server name for SNI
+}
+
+// CoordinationConfig defines multi-cluster coordination settings
+type CoordinationConfig struct {
+	Timeout             int    `yaml:"timeout"`
+	RetryAttempts       int    `yaml:"retry_attempts"`
+	FailureThreshold    int    `yaml:"failure_threshold"`
+	HealthCheckInterval string `yaml:"health_check_interval"`
+}
+
+// SchedulingConfig defines multi-cluster scheduling settings
+type SchedulingConfig struct {
+	Strategy              string             `yaml:"strategy"`
+	MaxConcurrentClusters int                `yaml:"max_concurrent_clusters"`
+	ClusterPriorities     []ClusterPriority  `yaml:"cluster_priorities"`
+}
+
+// ClusterPriority defines cluster priority for scheduling
+type ClusterPriority struct {
+	Cluster  string `yaml:"cluster"`
+	Priority int    `yaml:"priority"`
+}
+
 // FeaturesConfig defines feature flags
 type FeaturesConfig struct {
 	Experimental ExperimentalFeatures `yaml:"experimental"`
@@ -503,7 +597,7 @@ func (cl *ConfigLoader) Load() (*SharedConfig, error) {
 				RetryDelay: 5 * time.Second,
 			},
 		},
-		Cluster: ClusterConfig{
+		Cluster: SingleClusterConfig{
 			Domain: "cluster.local",
 			Type:   "kubernetes",
 		},
@@ -650,6 +744,53 @@ func (cl *ConfigLoader) expandEnvironmentVariables(config *SharedConfig) error {
 	config.Cluster.Domain = os.ExpandEnv(config.Cluster.Domain)
 	
 	config.GitOps.Repository.URL = os.ExpandEnv(config.GitOps.Repository.URL)
+	
+	// Expand multi-cluster configuration
+	for i := range config.MultiCluster.Clusters {
+		cluster := &config.MultiCluster.Clusters[i]
+		
+		// Basic cluster configuration
+		cluster.Name = os.ExpandEnv(cluster.Name)
+		cluster.Endpoint = os.ExpandEnv(cluster.Endpoint)
+		cluster.Token = os.ExpandEnv(cluster.Token) // Legacy support
+		
+		// Authentication configuration
+		cluster.Auth.Method = os.ExpandEnv(cluster.Auth.Method)
+		cluster.Auth.Token.Value = os.ExpandEnv(cluster.Auth.Token.Value)
+		cluster.Auth.Token.Type = os.ExpandEnv(cluster.Auth.Token.Type)
+		cluster.Auth.ServiceAccount.TokenPath = os.ExpandEnv(cluster.Auth.ServiceAccount.TokenPath)
+		cluster.Auth.ServiceAccount.CACertPath = os.ExpandEnv(cluster.Auth.ServiceAccount.CACertPath)
+		cluster.Auth.OIDC.IssuerURL = os.ExpandEnv(cluster.Auth.OIDC.IssuerURL)
+		cluster.Auth.OIDC.ClientID = os.ExpandEnv(cluster.Auth.OIDC.ClientID)
+		cluster.Auth.OIDC.ClientSecret = os.ExpandEnv(cluster.Auth.OIDC.ClientSecret)
+		cluster.Auth.OIDC.IDToken = os.ExpandEnv(cluster.Auth.OIDC.IDToken)
+		cluster.Auth.OIDC.RefreshToken = os.ExpandEnv(cluster.Auth.OIDC.RefreshToken)
+		cluster.Auth.Exec.Command = os.ExpandEnv(cluster.Auth.Exec.Command)
+		for j := range cluster.Auth.Exec.Args {
+			cluster.Auth.Exec.Args[j] = os.ExpandEnv(cluster.Auth.Exec.Args[j])
+		}
+		for j := range cluster.Auth.Exec.Env {
+			cluster.Auth.Exec.Env[j] = os.ExpandEnv(cluster.Auth.Exec.Env[j])
+		}
+		
+		// TLS configuration
+		cluster.TLS.CABundle = os.ExpandEnv(cluster.TLS.CABundle)
+		cluster.TLS.CAData = os.ExpandEnv(cluster.TLS.CAData)
+		cluster.TLS.CertFile = os.ExpandEnv(cluster.TLS.CertFile)
+		cluster.TLS.KeyFile = os.ExpandEnv(cluster.TLS.KeyFile)
+		cluster.TLS.CertData = os.ExpandEnv(cluster.TLS.CertData)
+		cluster.TLS.KeyData = os.ExpandEnv(cluster.TLS.KeyData)
+		cluster.TLS.ServerName = os.ExpandEnv(cluster.TLS.ServerName)
+		
+		// Storage configuration
+		cluster.Storage.Endpoint = os.ExpandEnv(cluster.Storage.Endpoint)
+		cluster.Storage.AccessKey = os.ExpandEnv(cluster.Storage.AccessKey)
+		cluster.Storage.SecretKey = os.ExpandEnv(cluster.Storage.SecretKey)
+		cluster.Storage.Bucket = os.ExpandEnv(cluster.Storage.Bucket)
+		cluster.Storage.Region = os.ExpandEnv(cluster.Storage.Region)
+	}
+	config.MultiCluster.DefaultCluster = os.ExpandEnv(config.MultiCluster.DefaultCluster)
+	config.MultiCluster.Coordination.HealthCheckInterval = os.ExpandEnv(config.MultiCluster.Coordination.HealthCheckInterval)
 	
 	return nil
 }

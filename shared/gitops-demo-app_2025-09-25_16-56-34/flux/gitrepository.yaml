@@ -1,0 +1,15 @@
+apiVersion: source.toolkit.fluxcd.io/v1beta2
+kind: GitRepository
+metadata:
+    labels:
+        app.kubernetes.io/component: backup-restore
+        app.kubernetes.io/managed-by: gitops-pipeline
+        app.kubernetes.io/name: demo-app
+        backup.source.cluster: crc-cluster
+    name: demo-app-restore-source
+    namespace: flux-system
+spec:
+    interval: 1m
+    ref:
+        branch: main
+    url: https://github.com/your-org/gitops-repo.git

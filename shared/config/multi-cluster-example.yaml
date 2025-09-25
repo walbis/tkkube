@@ -1,0 +1,263 @@
+schema_version: "1.0.0"
+description: "Multi-cluster configuration example for Kubernetes backup and GitOps generation pipeline"
+
+# Legacy single cluster configuration (used as fallback)
+storage:
+  type: minio
+  endpoint: "${MINIO_ENDPOINT:-localhost:9000}"
+  access_key: "${MINIO_ACCESS_KEY:-minioadmin}"
+  secret_key: "${MINIO_SECRET_KEY:-minioadmin123}"
+  bucket: "${MINIO_BUCKET:-cluster-backups}"
+  use_ssl: "${MINIO_USE_SSL:-false}"
+  region: "${MINIO_REGION:-us-east-1}"
+
+cluster:
+  name: "${CLUSTER_NAME:-primary}"
+  domain: "${CLUSTER_DOMAIN:-cluster.local}"
+  type: "${CLUSTER_TYPE:-kubernetes}"
+
+# Multi-cluster configuration
+multi_cluster:
+  enabled: "${MULTI_CLUSTER_ENABLED:-true}"
+  mode: "${MULTI_CLUSTER_MODE:-sequential}"  # sequential or parallel
+  default_cluster: "${DEFAULT_CLUSTER:-prod-us-east-1}"
+  
+  # Multiple cluster definitions
+  clusters:
+    # Production US East
+    - name: "prod-us-east-1"
+      endpoint: "${PROD_US_EAST_ENDPOINT:-https://api.prod-us-east-1.k8s.company.com:6443}"
+      token: "${PROD_US_EAST_TOKEN}"
+      storage:
+        type: "s3"
+        endpoint: "s3.us-east-1.amazonaws.com"
+        access_key: "${PROD_US_EAST_ACCESS_KEY}"
+        secret_key: "${PROD_US_EAST_SECRET_KEY}"
+        bucket: "prod-us-east-1-backups"
+        use_ssl: true
+        region: "us-east-1"
+    
+    # Production EU West
+    - name: "prod-eu-west-1"
+      endpoint: "${PROD_EU_WEST_ENDPOINT:-https://api.prod-eu-west-1.k8s.company.com:6443}"
+      token: "${PROD_EU_WEST_TOKEN}"
+      storage:
+        type: "s3"
+        endpoint: "s3.eu-west-1.amazonaws.com"
+        access_key: "${PROD_EU_WEST_ACCESS_KEY}"
+        secret_key: "${PROD_EU_WEST_SECRET_KEY}"
+        bucket: "prod-eu-west-1-backups"
+        use_ssl: true
+        region: "eu-west-1"
+    
+    # Staging cluster
+    - name: "staging-us-east-1"
+      endpoint: "${STAGING_US_EAST_ENDPOINT:-https://api.staging-us-east-1.k8s.company.com:6443}"
+      token: "${STAGING_US_EAST_TOKEN}"
+      storage:
+        type: "s3"
+        endpoint: "s3.us-east-1.amazonaws.com"
+        access_key: "${STAGING_US_EAST_ACCESS_KEY}"
+        secret_key: "${STAGING_US_EAST_SECRET_KEY}"
+        bucket: "staging-us-east-1-backups"
+        use_ssl: true
+        region: "us-east-1"
+    
+    # Development cluster (local MinIO)
+    - name: "dev-local"
+      endpoint: "${DEV_LOCAL_ENDPOINT:-https://api.dev-local.k8s.company.com:6443}"
+      token: "${DEV_LOCAL_TOKEN}"
+      storage:
+        type: "minio"
+        endpoint: "${DEV_MINIO_ENDPOINT:-dev-minio.company.com:9000}"
+        access_key: "${DEV_MINIO_ACCESS_KEY:-minioadmin}"
+        secret_key: "${DEV_MINIO_SECRET_KEY:-minioadmin123}"
+        bucket: "dev-local-backups"
+        use_ssl: false
+        region: "us-east-1"
+  
+  # Coordination settings
+  coordination:
+    timeout: "${MULTI_CLUSTER_TIMEOUT:-600}"  # 10 minutes
+    retry_attempts: "${MULTI_CLUSTER_RETRIES:-3}"
+    failure_threshold: "${MULTI_CLUSTER_FAILURE_THRESHOLD:-2}"  # Allow 2 cluster failures
+    health_check_interval: "${MULTI_CLUSTER_HEALTH_CHECK_INTERVAL:-60s}"
+  
+  # Scheduling and load balancing
+  scheduling:
+    strategy: "${MULTI_CLUSTER_SCHEDULING:-round_robin}"  # round_robin, least_loaded, priority
+    max_concurrent_clusters: "${MAX_CONCURRENT_CLUSTERS:-2}"  # Max 2 parallel clusters
+    cluster_priorities:
+      - cluster: "prod-us-east-1"
+        priority: "${PROD_US_EAST_PRIORITY:-1}"  # Highest priority
+      - cluster: "prod-eu-west-1"
+        priority: "${PROD_EU_WEST_PRIORITY:-1}"  # Highest priority
+      - cluster: "staging-us-east-1"
+        priority: "${STAGING_US_EAST_PRIORITY:-2}"  # Medium priority
+      - cluster: "dev-local"
+        priority: "${DEV_LOCAL_PRIORITY:-3}"  # Lowest priority
+
+# Backup configuration applies to all clusters
+backup:
+  filtering:
+    mode: "whitelist"
+    resources:
+      include:
+        - deployments
+        - services
+        - configmaps
+        - secrets
+        - persistentvolumeclaims
+        - statefulsets
+        - ingresses
+      exclude:
+        - events
+        - pods
+        - replicasets
+    namespaces:
+      exclude:
+        - kube-system
+        - kube-public
+        - kube-node-lease
+        - default
+        - openshift-*
+  
+  behavior:
+    batch_size: "${BATCH_SIZE:-25}"  # Smaller batches for multi-cluster
+    validate_yaml: true
+    skip_invalid_resources: true
+    max_resource_size: "10Mi"
+  
+  cleanup:
+    enabled: "${ENABLE_CLEANUP:-true}"
+    retention_days: "${RETENTION_DAYS:-14}"  # Longer retention for multi-cluster
+
+# GitOps configuration for multi-environment deployment
+gitops:
+  repository:
+    url: "${GIT_REPOSITORY:-git@github.com:company/k8s-gitops.git}"
+    branch: "${GIT_BRANCH:-main}"
+    auth:
+      method: "${GIT_AUTH_METHOD:-ssh}"
+      ssh:
+        private_key_path: "${GIT_SSH_KEY:-~/.ssh/id_rsa}"
+        passphrase: "${GIT_SSH_PASSPHRASE}"
+  
+  structure:
+    base_dir: "clusters"
+    environments:
+      - name: production-us
+        cluster_url: "${PROD_US_EAST_ENDPOINT}"
+        auto_sync: false  # Manual sync for production
+        replicas: 3
+      - name: production-eu
+        cluster_url: "${PROD_EU_WEST_ENDPOINT}"
+        auto_sync: false  # Manual sync for production
+        replicas: 3
+      - name: staging
+        cluster_url: "${STAGING_US_EAST_ENDPOINT}"
+        auto_sync: true
+        replicas: 2
+      - name: development
+        cluster_url: "${DEV_LOCAL_ENDPOINT}"
+        auto_sync: true
+        replicas: 1
+    
+    argocd:
+      enabled: true
+      namespace: "argocd"
+      project: "multi-cluster-backup"
+      sync_policy:
+        automated: false  # Manual sync for production safety
+        prune: false
+        self_heal: false
+
+# Pipeline integration for multi-cluster coordination
+pipeline:
+  mode: "${PIPELINE_MODE:-sequential}"  # Match multi-cluster mode
+  
+  automation:
+    enabled: "${AUTO_GITOPS:-true}"
+    trigger_on_backup_complete: true
+    wait_for_backup: true
+    max_wait_time: "${MAX_WAIT_TIME:-900}"  # 15 minutes for multi-cluster
+    
+    trigger_methods:
+      - "webhook"
+      - "process"
+    
+    webhook_trigger:
+      enabled: "${WEBHOOK_TRIGGER_ENABLED:-true}"
+      server_host: "${WEBHOOK_HOST:-0.0.0.0}"
+      server_port: "${WEBHOOK_PORT:-8080}"
+      endpoint_path: "/webhook/multi-cluster-backup-complete"
+  
+  notifications:
+    enabled: "${NOTIFICATIONS_ENABLED:-true}"
+    slack:
+      webhook_url: "${SLACK_WEBHOOK_URL}"
+      channel: "${SLACK_CHANNEL:-#multi-cluster-backup}"
+  
+  error_handling:
+    continue_on_error: "${CONTINUE_ON_ERROR:-true}"  # Continue with other clusters if one fails
+    max_retries: "${PIPELINE_RETRIES:-2}"
+    retry_delay: "60s"
+
+# Observability for multi-cluster monitoring
+observability:
+  metrics:
+    enabled: true
+    port: "${METRICS_PORT:-8080}"
+    path: "/metrics"
+  
+  logging:
+    level: "${LOG_LEVEL:-info}"
+    format: "json"
+    file: "${LOG_FILE}"
+  
+  tracing:
+    enabled: "${TRACING_ENABLED:-false}"
+    endpoint: "${TRACING_ENDPOINT}"
+    sample_rate: "${TRACING_SAMPLE_RATE:-0.1}"
+
+# Security configuration for multi-cluster
+security:
+  secrets:
+    provider: "${SECRET_PROVIDER:-env}"  # Consider vault for production
+  
+  network:
+    verify_ssl: "${VERIFY_SSL:-true}"
+    ca_bundle: "${CA_BUNDLE_PATH}"
+  
+  validation:
+    strict_mode: "${STRICT_VALIDATION:-true}"
+    scan_for_secrets: "${SCAN_SECRETS:-true}"
+
+# Performance tuning for multi-cluster operations
+performance:
+  limits:
+    max_concurrent_operations: "${MAX_CONCURRENT:-5}"  # Reduced for multi-cluster
+    memory_limit: "${MEMORY_LIMIT:-4Gi}"  # Increased for multi-cluster
+    cpu_limit: "${CPU_LIMIT:-4}"
+  
+  optimization:
+    batch_processing: true
+    compression: true
+    caching: true
+    cache_ttl: "${CACHE_TTL:-600}"  # 10 minutes
+  
+  http:
+    max_idle_conns: 200  # Increased for multiple clusters
+    max_conns_per_host: 100
+    request_timeout: "120s"  # Longer timeout for cluster communications
+
+# Feature flags
+features:
+  experimental:
+    multi_cluster_support: true  # Enable multi-cluster
+    incremental_backup: "${INCREMENTAL_BACKUP:-false}"
+    differential_sync: "${DIFFERENTIAL_SYNC:-false}"
+  
+  preview:
+    ui_dashboard: "${UI_DASHBOARD:-false}"
+    rest_api: "${REST_API:-false}"

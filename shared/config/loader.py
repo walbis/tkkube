@@ -45,8 +45,8 @@ class OpenShiftConfig:
 
 
 @dataclass
-class ClusterConfig:
-    """Cluster configuration."""
+class SingleClusterConfig:
+    """Single cluster configuration."""
     name: str = ""
     domain: str = "cluster.local"
     type: str = "kubernetes"
@@ -141,6 +141,110 @@ class RepositoryConfig:
     url: str = ""
     branch: str = "main"
     auth: AuthConfig = field(default_factory=AuthConfig)
+
+
+@dataclass
+class TokenAuthConfig:
+    """Token-based authentication configuration."""
+    value: str = ""
+    type: str = "bearer"  # bearer, service_account
+    refresh_threshold: int = 300  # seconds
+
+
+@dataclass
+class ServiceAccountConfig:
+    """Service account authentication configuration."""
+    token_path: str = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+    ca_cert_path: str = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+
+
+@dataclass
+class OIDCConfig:
+    """OIDC authentication configuration."""
+    issuer_url: str = ""
+    client_id: str = ""
+    client_secret: str = ""
+    id_token: str = ""
+    refresh_token: str = ""
+
+
+@dataclass
+class ExecConfig:
+    """Exec-based authentication configuration."""
+    command: str = ""
+    args: List[str] = field(default_factory=list)
+    env: List[str] = field(default_factory=list)
+
+
+@dataclass
+class ClusterAuthConfig:
+    """Authentication configuration for a cluster."""
+    method: str = "token"  # token, service_account, oidc, exec
+    token: TokenAuthConfig = field(default_factory=TokenAuthConfig)
+    service_account: ServiceAccountConfig = field(default_factory=ServiceAccountConfig)
+    oidc: OIDCConfig = field(default_factory=OIDCConfig)
+    exec: ExecConfig = field(default_factory=ExecConfig)
+
+
+@dataclass
+class ClusterTLSConfig:
+    """TLS configuration for cluster connections."""
+    insecure: bool = False
+    ca_bundle: str = ""    # path to CA bundle file
+    ca_data: str = ""      # base64 encoded CA certificate data
+    cert_file: str = ""    # path to client certificate file
+    key_file: str = ""     # path to client key file
+    cert_data: str = ""    # base64 encoded client certificate data
+    key_data: str = ""     # base64 encoded client key data
+    server_name: str = ""  # server name for SNI
+
+
+@dataclass
+class MultiClusterClusterConfig:
+    """Individual cluster configuration for multi-cluster."""
+    name: str = ""
+    endpoint: str = ""
+    auth: ClusterAuthConfig = field(default_factory=ClusterAuthConfig)
+    tls: ClusterTLSConfig = field(default_factory=ClusterTLSConfig)
+    storage: StorageConfig = field(default_factory=StorageConfig)
+    
+    # Legacy support - deprecated in favor of auth
+    token: str = ""
+
+
+@dataclass
+class CoordinationConfig:
+    """Multi-cluster coordination configuration."""
+    timeout: int = 300
+    retry_attempts: int = 3
+    failure_threshold: int = 2
+    health_check_interval: str = "30s"
+
+
+@dataclass
+class ClusterPriority:
+    """Cluster priority configuration."""
+    cluster: str = ""
+    priority: int = 1
+
+
+@dataclass
+class SchedulingConfig:
+    """Multi-cluster scheduling configuration."""
+    strategy: str = "round_robin"
+    max_concurrent_clusters: int = 3
+    cluster_priorities: List[ClusterPriority] = field(default_factory=list)
+
+
+@dataclass
+class MultiClusterConfig:
+    """Multi-cluster configuration."""
+    enabled: bool = False
+    mode: str = "sequential"
+    default_cluster: str = "primary"
+    clusters: List[MultiClusterClusterConfig] = field(default_factory=list)
+    coordination: CoordinationConfig = field(default_factory=CoordinationConfig)
+    scheduling: SchedulingConfig = field(default_factory=SchedulingConfig)
 
 
 @dataclass
@@ -317,7 +421,8 @@ class SharedConfig:
     schema_version: str = "1.0.0"
     description: str = "Unified configuration for Kubernetes backup and GitOps generation pipeline"
     storage: StorageConfig = field(default_factory=StorageConfig)
-    cluster: ClusterConfig = field(default_factory=ClusterConfig)
+    cluster: SingleClusterConfig = field(default_factory=SingleClusterConfig)
+    multi_cluster: MultiClusterConfig = field(default_factory=MultiClusterConfig)
     backup: BackupConfig = field(default_factory=BackupConfig)
     gitops: GitOpsConfig = field(default_factory=GitOpsConfig)
     pipeline: PipelineConfig = field(default_factory=PipelineConfig)
@@ -554,10 +659,13 @@ class ConfigLoader:
         Raises:
             ValueError: If configuration is invalid
         """
-        from .validator import validate_config
+        try:
+            from .validator import validate_config
+        except ImportError:
+            from validator import validate_config
         
         # Convert config to dict for validation
-        config_dict = self.to_dict(config)
+        config_dict = self._config_to_dict(config)
         
         # Perform validation
         validation_result = validate_config(config_dict)

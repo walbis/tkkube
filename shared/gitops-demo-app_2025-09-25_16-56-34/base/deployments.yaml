@@ -1,0 +1,60 @@
+# Enhanced Kubernetes Backup - Deployment
+# Backup Date: 2025-09-25 18:28:38 +03
+# Resource Type: deployment
+# Schema Status: COMPLETE (apiVersion and kind included)
+# Restoration: Ready for kubectl apply
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    deployment.kubernetes.io/revision: "3"
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"apps/v1","kind":"Deployment","metadata":{"annotations":{},"name":"test-app","namespace":"demo-app"},"spec":{"replicas":2,"selector":{"matchLabels":{"app":"test-app"}},"template":{"metadata":{"labels":{"app":"test-app"}},"spec":{"containers":[{"image":"nginx:alpine","name":"nginx","ports":[{"containerPort":80}]}]}}}}
+  creationTimestamp: "2025-09-25T11:10:08Z"
+  name: test-app
+  namespace: demo-app
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 3
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: test-app
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: test-app
+    spec:
+      containers:
+        image: nginx:1.24-alpine
+        imagePullPolicy: IfNotPresent
+        name: nginx
+        ports:
+        - containerPort: 80
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 3000
+        fsGroup: 3000
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 30

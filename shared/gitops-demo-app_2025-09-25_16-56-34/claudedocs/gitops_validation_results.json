@@ -1,0 +1,194 @@
+{
+  "kustomize_available": true,
+  "kustomization_files": [
+    "base/kustomization.yaml",
+    "flux/kustomization.yaml",
+    "overlays/development/kustomization.yaml",
+    "overlays/production/kustomization.yaml",
+    "overlays/staging/kustomization.yaml"
+  ],
+  "kustomize_build_results": {
+    "base/kustomization.yaml": {
+      "directory": "base",
+      "build_successful": false,
+      "output": "",
+      "errors": [
+        "Build failed: Error: accumulating resources: accumulation err='accumulating resources from 'configmaps.yaml': missing metadata.name in object {{v1 ConfigMap} {{ } map[] map[]}}': must build at directory: '/home/tkkaray/inceleme/shared/gitops-demo-app_2025-09-25_16-56-34/base/configmaps.yaml': file is not directory\n"
+      ],
+      "manifest_count": 0,
+      "resource_types": "set()"
+    },
+    "flux/kustomization.yaml": {
+      "directory": "flux",
+      "build_successful": false,
+      "output": "",
+      "errors": [
+        "Build failed: Error: invalid Kustomization: json: unknown field \"spec\"\n"
+      ],
+      "manifest_count": 0,
+      "resource_types": "set()"
+    },
+    "overlays/development/kustomization.yaml": {
+      "directory": "overlays/development",
+      "build_successful": false,
+      "output": "",
+      "errors": [
+        "Build failed: Error: accumulating resources: accumulation err='accumulating resources from '../../base': '/home/tkkaray/inceleme/shared/gitops-demo-app_2025-09-25_16-56-34/base' must resolve to a file': recursed accumulation of path '/home/tkkaray/inceleme/shared/gitops-demo-app_2025-09-25_16-56-34/base': accumulating resources: accumulation err='accumulating resources from 'configmaps.yaml': missing metadata.name in object {{v1 ConfigMap} {{ } map[] map[]}}': must build at directory: '/home/tkkaray/inceleme/shared/gitops-demo-app_2025-09-25_16-56-34/base/configmaps.yaml': file is not directory\n"
+      ],
+      "manifest_count": 0,
+      "resource_types": "set()"
+    },
+    "overlays/production/kustomization.yaml": {
+      "directory": "overlays/production",
+      "build_successful": false,
+      "output": "",
+      "errors": [
+        "Build failed: Error: accumulating resources: accumulation err='accumulating resources from '../../base': '/home/tkkaray/inceleme/shared/gitops-demo-app_2025-09-25_16-56-34/base' must resolve to a file': recursed accumulation of path '/home/tkkaray/inceleme/shared/gitops-demo-app_2025-09-25_16-56-34/base': accumulating resources: accumulation err='accumulating resources from 'configmaps.yaml': missing metadata.name in object {{v1 ConfigMap} {{ } map[] map[]}}': must build at directory: '/home/tkkaray/inceleme/shared/gitops-demo-app_2025-09-25_16-56-34/base/configmaps.yaml': file is not directory\n"
+      ],
+      "manifest_count": 0,
+      "resource_types": "set()"
+    },
+    "overlays/staging/kustomization.yaml": {
+      "directory": "overlays/staging",
+      "build_successful": false,
+      "output": "",
+      "errors": [
+        "Build failed: Error: accumulating resources: accumulation err='accumulating resources from '../../base': '/home/tkkaray/inceleme/shared/gitops-demo-app_2025-09-25_16-56-34/base' must resolve to a file': recursed accumulation of path '/home/tkkaray/inceleme/shared/gitops-demo-app_2025-09-25_16-56-34/base': accumulating resources: accumulation err='accumulating resources from 'configmaps.yaml': missing metadata.name in object {{v1 ConfigMap} {{ } map[] map[]}}': must build at directory: '/home/tkkaray/inceleme/shared/gitops-demo-app_2025-09-25_16-56-34/base/configmaps.yaml': file is not directory\n"
+      ],
+      "manifest_count": 0,
+      "resource_types": "set()"
+    }
+  },
+  "argocd_applications": [
+    {
+      "file": "argocd/application.yaml",
+      "name": "demo-app-restore",
+      "valid": true,
+      "errors": [],
+      "warnings": [
+        "Source path does not exist locally: gitops-demo-app_2025-09-25_16-56-34/overlays/development"
+      ],
+      "source_path_exists": false,
+      "destination_cluster": "https://kubernetes.default.svc",
+      "destination_namespace": "demo-app"
+    }
+  ],
+  "flux_manifests": [
+    {
+      "file": "flux/gitrepository.yaml",
+      "kind": "GitRepository",
+      "name": "demo-app-restore-source",
+      "valid": true,
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "file": "flux/kustomization.yaml",
+      "kind": "Kustomization",
+      "name": "demo-app-restore",
+      "valid": true,
+      "errors": [],
+      "warnings": []
+    }
+  ],
+  "directory_structure": {
+    "has_base_directory": true,
+    "has_overlays_directory": true,
+    "overlay_environments": [
+      "production",
+      "staging",
+      "development"
+    ],
+    "argocd_directory": true,
+    "flux_directory": true,
+    "recommendations": []
+  },
+  "resource_references": {
+    "base/kustomization.yaml": {
+      "file": "base/kustomization.yaml",
+      "valid": true,
+      "errors": [],
+      "warnings": [
+        "Consider setting a namespace for resources"
+      ],
+      "resources": [
+        "deployments.yaml",
+        "services.yaml",
+        "configmaps.yaml"
+      ],
+      "missing_resources": [],
+      "patches": [],
+      "missing_patches": [],
+      "bases": [],
+      "missing_bases": []
+    },
+    "flux/kustomization.yaml": {
+      "file": "flux/kustomization.yaml",
+      "valid": true,
+      "errors": [],
+      "warnings": [],
+      "resources": [],
+      "missing_resources": [],
+      "patches": [],
+      "missing_patches": [],
+      "bases": [],
+      "missing_bases": []
+    },
+    "overlays/development/kustomization.yaml": {
+      "file": "overlays/development/kustomization.yaml",
+      "valid": true,
+      "errors": [],
+      "warnings": [
+        "Consider setting a namespace for resources"
+      ],
+      "resources": [
+        "../../base"
+      ],
+      "missing_resources": [],
+      "patches": [],
+      "missing_patches": [],
+      "bases": [],
+      "missing_bases": []
+    },
+    "overlays/production/kustomization.yaml": {
+      "file": "overlays/production/kustomization.yaml",
+      "valid": true,
+      "errors": [],
+      "warnings": [
+        "Consider setting a namespace for resources"
+      ],
+      "resources": [
+        "../../base"
+      ],
+      "missing_resources": [],
+      "patches": [],
+      "missing_patches": [],
+      "bases": [],
+      "missing_bases": []
+    },
+    "overlays/staging/kustomization.yaml": {
+      "file": "overlays/staging/kustomization.yaml",
+      "valid": true,
+      "errors": [],
+      "warnings": [
+        "Consider setting a namespace for resources"
+      ],
+      "resources": [
+        "../../base"
+      ],
+      "missing_resources": [],
+      "patches": [],
+      "missing_patches": [],
+      "bases": [],
+      "missing_bases": []
+    }
+  },
+  "errors": [
+    "base: Build failed: Error: accumulating resources: accumulation err='accumulating resources from 'configmaps.yaml': missing metadata.name in object {{v1 ConfigMap} {{ } map[] map[]}}': must build at directory: '/home/tkkaray/inceleme/shared/gitops-demo-app_2025-09-25_16-56-34/base/configmaps.yaml': file is not directory\n",
+    "flux: Build failed: Error: invalid Kustomization: json: unknown field \"spec\"\n",
+    "overlays/development: Build failed: Error: accumulating resources: accumulation err='accumulating resources from '../../base': '/home/tkkaray/inceleme/shared/gitops-demo-app_2025-09-25_16-56-34/base' must resolve to a file': recursed accumulation of path '/home/tkkaray/inceleme/shared/gitops-demo-app_2025-09-25_16-56-34/base': accumulating resources: accumulation err='accumulating resources from 'configmaps.yaml': missing metadata.name in object {{v1 ConfigMap} {{ } map[] map[]}}': must build at directory: '/home/tkkaray/inceleme/shared/gitops-demo-app_2025-09-25_16-56-34/base/configmaps.yaml': file is not directory\n",
+    "overlays/production: Build failed: Error: accumulating resources: accumulation err='accumulating resources from '../../base': '/home/tkkaray/inceleme/shared/gitops-demo-app_2025-09-25_16-56-34/base' must resolve to a file': recursed accumulation of path '/home/tkkaray/inceleme/shared/gitops-demo-app_2025-09-25_16-56-34/base': accumulating resources: accumulation err='accumulating resources from 'configmaps.yaml': missing metadata.name in object {{v1 ConfigMap} {{ } map[] map[]}}': must build at directory: '/home/tkkaray/inceleme/shared/gitops-demo-app_2025-09-25_16-56-34/base/configmaps.yaml': file is not directory\n",
+    "overlays/staging: Build failed: Error: accumulating resources: accumulation err='accumulating resources from '../../base': '/home/tkkaray/inceleme/shared/gitops-demo-app_2025-09-25_16-56-34/base' must resolve to a file': recursed accumulation of path '/home/tkkaray/inceleme/shared/gitops-demo-app_2025-09-25_16-56-34/base': accumulating resources: accumulation err='accumulating resources from 'configmaps.yaml': missing metadata.name in object {{v1 ConfigMap} {{ } map[] map[]}}': must build at directory: '/home/tkkaray/inceleme/shared/gitops-demo-app_2025-09-25_16-56-34/base/configmaps.yaml': file is not directory\n"
+  ],
+  "warnings": []
+}

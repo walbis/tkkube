@@ -1,0 +1,9 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-app
+spec:
+  replicas: 1
+---
+# Environment: development
+# Restored from backup: backup_demo-app_2025-09-25_16-56-34
